@@ -4,8 +4,8 @@
 
 ```
 apps/
-  api/    → NestJS (TypeScript) — port 3001
-  web/    → Next.js (TypeScript) — port 3000
+  api/    → NestJS (TypeScript) — port 3011
+  web/    → Next.js (TypeScript) — port 3010
 packages/
   shared/ → Shared types & utilities
 docker/
@@ -68,5 +68,5 @@ npm run dev
 
 ## Health Check (DoD)
 
-- **API**: `GET http://localhost:3001/api/health` → `{ ok: true, db: true }`
-- **Web**: `http://localhost:3000` → displays "API OK" with DB status
+- **API**: `GET http://localhost:3011/api/health` → `{ ok: true, db: true }`
+- **Web**: `http://localhost:3010` → displays "API OK" with DB status
