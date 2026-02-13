@@ -7,11 +7,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Entreprise {
+model Org {
   id        String   @id @default(uuid())
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("entreprises")
+  leads Lead[]
+
+  @@map("orgs")
+}
+
+model Lead {
+  id        String   @id @default(uuid())
+  orgId     String
+  fullName  String
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org Org @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@map("leads")
 }
