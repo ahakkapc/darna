@@ -4,6 +4,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
@@ -45,6 +46,22 @@ export class OrgContextGuard implements CanActivate {
           message: `Org ${orgId} not found`,
         },
       });
+    }
+
+    // Auth-aware: if user is authenticated, verify membership
+    const userId: string | undefined = (req as any).user?.userId;
+    if (userId) {
+      const membership = await this.prisma.orgMembership.findUnique({
+        where: { userId_orgId: { userId, orgId } },
+      });
+      if (!membership) {
+        throw new ForbiddenException({
+          error: {
+            code: 'ORG_FORBIDDEN',
+            message: 'You are not a member of this organization',
+          },
+        });
+      }
     }
 
     (req as any).orgId = orgId;

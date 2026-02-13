@@ -25,6 +25,46 @@ npm run dev:web
 - **API** : http://localhost:3011/api/health → `{ ok: true, db: true }`
 - **Web** : http://localhost:3010 → affiche "API OK"
 
+## Auth & Organisations (SPEC-02)
+
+### Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/auth/register` | — | Create user |
+| POST | `/api/auth/login` | — | Login (sets httpOnly cookies) |
+| POST | `/api/auth/refresh` | cookie | Rotate refresh token |
+| POST | `/api/auth/logout` | cookie | Revoke refresh + clear cookies |
+| GET | `/api/auth/me` | JWT | User info + orgs list |
+| POST | `/api/orgs` | JWT | Create org (caller = OWNER) |
+| GET | `/api/orgs` | JWT | List user's orgs |
+| POST | `/api/orgs/:orgId/invite` | JWT + OWNER/MANAGER | Invite by email |
+| POST | `/api/orgs/invites/accept` | JWT | Accept invite token |
+| GET | `/api/orgs/:orgId/members` | JWT + OWNER/MANAGER | List members |
+| PATCH | `/api/orgs/:orgId/members/:userId` | JWT + OWNER | Change role |
+
+### RBAC Roles
+
+`OWNER` > `MANAGER` > `AGENT` > `VIEWER`
+
+- **OWNER**: full access, can change roles, invite
+- **MANAGER**: can invite, list members
+- **AGENT**: standard member
+- **VIEWER**: read-only
+
+### Web UI (minimal test pages)
+
+- `/login` — login / register form
+- `/me` — profile + org list + select active org
+- `/orgs/new` — create organisation
+- `/orgs/select` — pick active org (stored in localStorage, sent as `x-org-id`)
+
+### Guards
+
+- **JwtAuthGuard** — reads `access_token` cookie (or `Authorization: Bearer` header)
+- **OrgContextGuard** — validates `x-org-id` header + verifies membership if authenticated
+- **OrgRoleGuard** + `@OrgRoles(...)` — checks caller's role in org
+
 ## Multi-tenant Rules
 
 - **RLS** (Row-Level Security) is enforced at the DB level on all tenant-scoped tables.

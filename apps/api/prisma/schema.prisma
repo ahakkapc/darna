@@ -7,15 +7,89 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum OrgRole {
+  OWNER
+  MANAGER
+  AGENT
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships   OrgMembership[]
+  refreshTokens RefreshToken[]
+  acceptedInvites OrgInvite[] @relation("AcceptedBy")
+
+  @@map("users")
+}
+
 model Org {
   id        String   @id @default(uuid())
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  leads Lead[]
+  leads       Lead[]
+  memberships OrgMembership[]
+  invites     OrgInvite[]
 
   @@map("orgs")
+}
+
+model OrgMembership {
+  userId    String
+  orgId     String
+  role      OrgRole
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  org  Org  @relation(fields: [orgId], references: [id])
+
+  @@id([userId, orgId])
+  @@index([orgId])
+  @@index([userId])
+  @@map("org_memberships")
+}
+
+model RefreshToken {
+  id                String    @id @default(uuid())
+  userId            String
+  tokenHash         String
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?
+  createdAt         DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model OrgInvite {
+  id               String    @id @default(uuid())
+  orgId            String
+  email            String
+  role             OrgRole
+  tokenHash        String
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  acceptedByUserId String?
+  createdAt        DateTime  @default(now())
+
+  org        Org   @relation(fields: [orgId], references: [id])
+  acceptedBy User? @relation("AcceptedBy", fields: [acceptedByUserId], references: [id])
+
+  @@index([orgId])
+  @@index([tokenHash])
+  @@map("org_invites")
 }
 
 model Lead {
