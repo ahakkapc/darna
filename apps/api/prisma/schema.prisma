@@ -114,6 +114,46 @@ enum OnboardingStatus {
   COMPLETED
 }
 
+enum DocumentKind {
+  IMAGE
+  PDF
+  OTHER
+}
+
+enum DocumentVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum DocumentStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum UploadStatus {
+  PENDING
+  UPLOADED
+  CONFIRMED
+  ABORTED
+  EXPIRED
+}
+
+enum FileBlobStatus {
+  QUARANTINED
+  SAFE
+  REJECTED
+}
+
+enum LinkTargetType {
+  LISTING
+  PROGRAM
+  LEAD
+  KYC
+  USER_PROFILE
+  OTHER
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -444,4 +484,115 @@ model AuditLog {
   @@index([organizationId, createdAt])
   @@index([action, createdAt])
   @@map("audit_logs")
+}
+
+model FileBlob {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+
+  sha256         String
+  sizeBytes      Int
+  mimeType       String
+  bucket         String
+  storageKey     String         @unique
+  etag           String?
+  status         FileBlobStatus @default(QUARANTINED)
+
+  createdAt      DateTime       @default(now())
+
+  versions       DocumentVersion[]
+
+  @@unique([organizationId, sha256])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@map("file_blobs")
+}
+
+model Document {
+  id              String             @id @default(uuid()) @db.Uuid
+  organizationId  String             @db.Uuid
+
+  kind            DocumentKind
+  title           String?
+  visibility      DocumentVisibility @default(PRIVATE)
+  status          DocumentStatus     @default(ACTIVE)
+
+  createdByUserId String?            @db.Uuid
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  versions        DocumentVersion[]
+  links           DocumentLink[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @db.Uuid
+
+  documentId       String   @db.Uuid
+  fileBlobId       String   @db.Uuid
+
+  version          Int
+  isCurrent        Boolean  @default(false)
+
+  originalFilename String?
+  metadataJson     Json?
+  createdByUserId  String?  @db.Uuid
+  createdAt        DateTime @default(now())
+
+  document         Document @relation(fields: [documentId], references: [id])
+  blob             FileBlob @relation(fields: [fileBlobId], references: [id])
+
+  @@unique([documentId, version])
+  @@index([organizationId])
+  @@index([documentId, isCurrent])
+  @@map("document_versions")
+}
+
+model DocumentLink {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+
+  documentId     String         @db.Uuid
+  targetType     LinkTargetType
+  targetId       String
+  tag            String?
+
+  createdAt      DateTime       @default(now())
+
+  document       Document       @relation(fields: [documentId], references: [id])
+
+  @@index([organizationId])
+  @@index([targetType, targetId])
+  @@unique([documentId, targetType, targetId, tag])
+  @@map("document_links")
+}
+
+model UploadSession {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  createdByUserId String?      @db.Uuid
+
+  status          UploadStatus @default(PENDING)
+  expiresAt       DateTime
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  bucket          String
+  storageKey      String       @unique
+  mimeType        String
+  sizeBytes       Int
+  sha256          String?
+  etag            String?
+  originalFilename String?
+
+  documentId      String?      @db.Uuid
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@map("upload_sessions")
 }
