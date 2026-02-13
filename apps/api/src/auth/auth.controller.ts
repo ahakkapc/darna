@@ -15,6 +15,8 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from './current-user.decorator';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { RateLimitGuard, RateLimit } from '../common/guards/rate-limit.guard';
+import { AuditService } from '../audit/audit.service';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
@@ -46,7 +48,10 @@ function clearAuthCookies(res: Response) {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly audit: AuditService,
+  ) {}
 
   @Post('register')
   async register(@Body() dto: RegisterDto) {
@@ -55,25 +60,68 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ max: 10, windowSeconds: 600, keyFn: (req) => `rl:login:ip:${req.ip || req.socket?.remoteAddress}` })
   async login(
     @Body() dto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const tokens = await this.authService.login(dto);
-    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
-    return { ok: true };
+    try {
+      const tokens = await this.authService.login(dto);
+      setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+      await this.audit.log({
+        actorRole: 'ORG',
+        actorLabel: dto.email,
+        action: 'AUTH_LOGIN_SUCCESS',
+        targetType: 'USER',
+        ip: req.ip || req.socket?.remoteAddress,
+        userAgent: req.headers['user-agent'],
+      });
+      return { ok: true };
+    } catch (err) {
+      await this.audit.log({
+        actorRole: 'ORG',
+        actorLabel: dto.email,
+        action: 'AUTH_LOGIN_FAIL',
+        targetType: 'USER',
+        ip: req.ip || req.socket?.remoteAddress,
+        userAgent: req.headers['user-agent'],
+      });
+      throw err;
+    }
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ max: 30, windowSeconds: 600 })
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const refreshTokenRaw = req.cookies?.refresh_token;
-    const tokens = await this.authService.refresh(refreshTokenRaw);
-    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
-    return { ok: true };
+    try {
+      const refreshTokenRaw = req.cookies?.refresh_token;
+      const tokens = await this.authService.refresh(refreshTokenRaw);
+      setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+      await this.audit.log({
+        actorRole: 'ORG',
+        action: 'AUTH_REFRESH_SUCCESS',
+        targetType: 'TOKEN',
+        ip: req.ip || req.socket?.remoteAddress,
+        userAgent: req.headers['user-agent'],
+      });
+      return { ok: true };
+    } catch (err) {
+      await this.audit.log({
+        actorRole: 'ORG',
+        action: 'AUTH_REFRESH_FAIL',
+        targetType: 'TOKEN',
+        ip: req.ip || req.socket?.remoteAddress,
+        userAgent: req.headers['user-agent'],
+      });
+      throw err;
+    }
   }
 
   @Post('logout')
@@ -85,6 +133,15 @@ export class AuthController {
     const refreshTokenRaw = req.cookies?.refresh_token;
     await this.authService.logout(refreshTokenRaw);
     clearAuthCookies(res);
+    const userId = (req as any).user?.userId;
+    await this.audit.log({
+      userId,
+      actorRole: 'ORG',
+      action: 'AUTH_LOGOUT',
+      targetType: 'TOKEN',
+      ip: req.ip || req.socket?.remoteAddress,
+      userAgent: req.headers['user-agent'],
+    });
     return { ok: true };
   }
 

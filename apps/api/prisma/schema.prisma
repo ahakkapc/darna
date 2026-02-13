@@ -423,3 +423,25 @@ model OrgOnboarding {
   @@index([orgId])
   @@map("org_onboardings")
 }
+
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String?  @db.Uuid
+  userId         String?  @db.Uuid
+
+  actorRole      String
+  actorLabel     String?
+  action         String
+  targetType     String
+  targetId       String?  @db.Uuid
+
+  ip             String?
+  userAgent      String?
+  metaJson       Json?
+
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}

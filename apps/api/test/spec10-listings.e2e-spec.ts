@@ -128,16 +128,17 @@ describe('SPEC-10 — Listings CRUD + Publish Gates (e2e)', () => {
     const p2 = await registerAndLogin(app, pro2Email);
     pro2Cookies = p2.cookies;
     orgIdB = await createOrg(app, pro2Cookies, `ListOrgB-${TS}`);
-  });
+  }, 30000);
 
   afterAll(async () => {
-    await prisma.listingModeration.deleteMany({ where: { organizationId: { in: [orgIdA, orgIdB] } } });
-    await prisma.listing.deleteMany({ where: { organizationId: { in: [orgIdA, orgIdB] } } });
-    await prisma.offlinePayment.deleteMany({ where: { organizationId: { in: [orgIdA, orgIdB] } } });
-    await prisma.subscription.deleteMany({ where: { organizationId: { in: [orgIdA, orgIdB] } } });
-    await prisma.kycRequest.deleteMany({ where: { organizationId: { in: [orgIdA, orgIdB] } } });
+    const orgIds = [orgIdA, orgIdB].filter(Boolean);
+    await prisma.listingModeration.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.listing.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.offlinePayment.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.subscription.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.kycRequest.deleteMany({ where: { organizationId: { in: orgIds } } });
     await app.close();
-  });
+  }, 30000);
 
   // ─── CRUD ──────────────────────────────────────────────────────
   describe('Listing CRUD', () => {

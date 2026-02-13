@@ -27,7 +27,17 @@ function flattenErrors(
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
-  app.enableCors({ origin: 'http://localhost:3010', credentials: true });
+
+  const allowedOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3010')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  app.enableCors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-Id', 'X-Org-Id', 'Cookie'],
+  });
   app.setGlobalPrefix('api');
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new HttpLoggingInterceptor());

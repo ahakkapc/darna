@@ -105,14 +105,15 @@ describe('SPEC-13 — KYC + Subscription + Moderation (e2e)', () => {
     const p = await registerAndLogin(app, proEmail2);
     pro2Cookies = p.cookies;
     orgIdB = await createOrg(app, pro2Cookies, `OrgB-${TS}`);
-  });
+  }, 30000);
 
   afterAll(async () => {
-    await prisma.kycRequest.deleteMany({ where: { organizationId: { in: [orgIdA, orgIdB] } } });
-    await prisma.offlinePayment.deleteMany({ where: { organizationId: { in: [orgIdA, orgIdB] } } });
-    await prisma.subscription.deleteMany({ where: { organizationId: { in: [orgIdA, orgIdB] } } });
+    const orgIds = [orgIdA, orgIdB].filter(Boolean);
+    await prisma.kycRequest.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.offlinePayment.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.subscription.deleteMany({ where: { organizationId: { in: orgIds } } });
     await app.close();
-  });
+  }, 30000);
 
   // ─── KYC ────────────────────────────────────────────────────────
   describe('KYC workflow', () => {

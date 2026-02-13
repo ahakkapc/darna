@@ -7,11 +7,18 @@ export class HealthController {
 
   @Get()
   async check() {
+    let db = false;
     try {
-      await this.prisma.$connect();
-      return { ok: true, db: true };
+      await this.prisma.user.count({ take: 1 });
+      db = true;
     } catch {
-      return { ok: true, db: false };
+      db = false;
     }
+
+    return {
+      ok: db,
+      db: db ? 'up' : 'down',
+      ts: new Date().toISOString(),
+    };
   }
 }
