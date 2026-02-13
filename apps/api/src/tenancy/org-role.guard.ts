@@ -2,11 +2,11 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
-  ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { OrgRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppError } from '../common/errors/app-error';
 import { ORG_ROLES_KEY } from './org-roles.decorator';
 
 @Injectable()
@@ -28,9 +28,7 @@ export class OrgRoleGuard implements CanActivate {
     const orgId: string | undefined = req.orgId;
 
     if (!userId || !orgId) {
-      throw new ForbiddenException({
-        error: { code: 'ORG_FORBIDDEN', message: 'Access denied' },
-      });
+      throw new AppError('ORG_FORBIDDEN', 403, 'Access denied');
     }
 
     const membership = await this.prisma.orgMembership.findUnique({
@@ -38,9 +36,7 @@ export class OrgRoleGuard implements CanActivate {
     });
 
     if (!membership || !requiredRoles.includes(membership.role)) {
-      throw new ForbiddenException({
-        error: { code: 'ORG_FORBIDDEN', message: 'Insufficient role' },
-      });
+      throw new AppError('ORG_FORBIDDEN', 403, 'Insufficient role');
     }
 
     (req as any).orgRole = membership.role;

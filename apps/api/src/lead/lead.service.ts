@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppError } from '../common/errors/app-error';
 import { withOrg } from '../tenancy/with-org';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
@@ -32,9 +33,7 @@ export class LeadService {
       tx.lead.findUnique({ where: { id } }),
     );
     if (!lead) {
-      throw new NotFoundException({
-        error: { code: 'LEAD_NOT_FOUND', message: `Lead ${id} not found` },
-      });
+      throw new AppError('LEAD_NOT_FOUND', 404, `Lead ${id} not found`);
     }
     return lead;
   }

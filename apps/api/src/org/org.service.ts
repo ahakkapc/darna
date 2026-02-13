@@ -1,14 +1,8 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  ConflictException,
-  BadRequestException,
-  GoneException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { createHash, randomBytes } from 'crypto';
 import { OrgRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppError } from '../common/errors/app-error';
 import { CreateOrgDto } from './dto/create-org.dto';
 import { InviteDto } from './dto/invite.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
@@ -51,9 +45,7 @@ export class OrgService {
       where: { orgId, email: dto.email, acceptedAt: null, expiresAt: { gt: new Date() } },
     });
     if (existing) {
-      throw new ConflictException({
-        error: { code: 'INVITE_ALREADY_EXISTS', message: 'Active invite already exists for this email' },
-      });
+      throw new AppError('INVITE_ALREADY_EXISTS', 409, 'Active invite already exists for this email');
     }
 
     const tokenRaw = randomBytes(INVITE_TOKEN_BYTES).toString('hex');
@@ -75,21 +67,15 @@ export class OrgService {
     });
 
     if (!invite) {
-      throw new BadRequestException({
-        error: { code: 'INVITE_INVALID', message: 'Invite token is invalid' },
-      });
+      throw new AppError('INVITE_INVALID', 400, 'Invite token is invalid');
     }
 
     if (invite.acceptedAt) {
-      throw new BadRequestException({
-        error: { code: 'INVITE_INVALID', message: 'Invite already accepted' },
-      });
+      throw new AppError('INVITE_INVALID', 400, 'Invite already accepted');
     }
 
     if (invite.expiresAt < new Date()) {
-      throw new GoneException({
-        error: { code: 'INVITE_EXPIRED', message: 'Invite has expired' },
-      });
+      throw new AppError('INVITE_EXPIRED', 410, 'Invite has expired');
     }
 
     await this.prisma.orgMembership.upsert({
@@ -132,9 +118,7 @@ export class OrgService {
       where: { userId_orgId: { userId: targetUserId, orgId } },
     });
     if (!targetMembership) {
-      throw new NotFoundException({
-        error: { code: 'MEMBER_NOT_FOUND', message: 'Member not found in this org' },
-      });
+      throw new AppError('MEMBER_NOT_FOUND', 404, 'Member not found in this org');
     }
 
     await this.prisma.orgMembership.update({
@@ -150,9 +134,7 @@ export class OrgService {
       where: { userId_orgId: { userId, orgId } },
     });
     if (!membership || !allowedRoles.includes(membership.role)) {
-      throw new ForbiddenException({
-        error: { code: 'ORG_FORBIDDEN', message: 'Insufficient role' },
-      });
+      throw new AppError('ORG_FORBIDDEN', 403, 'Insufficient role');
     }
     return membership;
   }

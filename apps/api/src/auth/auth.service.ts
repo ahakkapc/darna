@@ -1,12 +1,9 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppError } from '../common/errors/app-error';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -26,9 +23,7 @@ export class AuthService {
       where: { email: dto.email },
     });
     if (existing) {
-      throw new ConflictException({
-        error: { code: 'EMAIL_ALREADY_USED', message: 'Email already used' },
-      });
+      throw new AppError('EMAIL_ALREADY_USED', 409, 'Email already used');
     }
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
@@ -44,16 +39,12 @@ export class AuthService {
       where: { email: dto.email },
     });
     if (!user) {
-      throw new UnauthorizedException({
-        error: { code: 'INVALID_CREDENTIALS', message: 'Invalid credentials' },
-      });
+      throw new AppError('INVALID_CREDENTIALS', 401, 'Invalid credentials');
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) {
-      throw new UnauthorizedException({
-        error: { code: 'INVALID_CREDENTIALS', message: 'Invalid credentials' },
-      });
+      throw new AppError('INVALID_CREDENTIALS', 401, 'Invalid credentials');
     }
 
     return this.issueTokens(user.id, user.email);
@@ -61,9 +52,7 @@ export class AuthService {
 
   async refresh(refreshTokenRaw: string | undefined) {
     if (!refreshTokenRaw) {
-      throw new UnauthorizedException({
-        error: { code: 'REFRESH_INVALID', message: 'Refresh token missing' },
-      });
+      throw new AppError('REFRESH_INVALID', 401, 'Refresh token missing');
     }
 
     const tokenHash = this.hashToken(refreshTokenRaw);
@@ -72,9 +61,7 @@ export class AuthService {
     });
 
     if (!existing || existing.revokedAt || existing.expiresAt < new Date()) {
-      throw new UnauthorizedException({
-        error: { code: 'REFRESH_INVALID', message: 'Refresh token invalid or expired' },
-      });
+      throw new AppError('REFRESH_INVALID', 401, 'Refresh token invalid or expired');
     }
 
     // Rotation: revoke old, issue new
@@ -116,9 +103,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException({
-        error: { code: 'INVALID_CREDENTIALS', message: 'User not found' },
-      });
+      throw new AppError('INVALID_CREDENTIALS', 401, 'User not found');
     }
 
     return {

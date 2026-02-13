@@ -65,6 +65,58 @@ npm run dev:web
 - **OrgContextGuard** — validates `x-org-id` header + verifies membership if authenticated
 - **OrgRoleGuard** + `@OrgRoles(...)` — checks caller's role in org
 
+## Error Model & Logging (SPEC-03)
+
+### Canon error format
+
+Every error response follows this shape:
+
+```json
+{
+  "error": { "code": "SOME_CODE", "message": "...", "details": {} },
+  "requestId": "uuid"
+}
+```
+
+### RequestId
+
+- Client can send `x-request-id` header → echoed back
+- If absent → auto-generated UUID
+- Always returned in response header `x-request-id` + in error body `requestId`
+
+### Error codes
+
+| Code | Status | Source |
+|------|--------|--------|
+| `VALIDATION_ERROR` | 400 | Invalid DTO payload (`details.fields[]`) |
+| `ORG_CONTEXT_REQUIRED` | 400 | Missing `x-org-id` header |
+| `ORG_CONTEXT_INVALID` | 400 | Invalid UUID in `x-org-id` |
+| `UNAUTHENTICATED` | 401 | Missing/expired JWT |
+| `INVALID_CREDENTIALS` | 401 | Wrong email/password |
+| `REFRESH_INVALID` | 401 | Bad/expired/revoked refresh token |
+| `ORG_FORBIDDEN` | 403 | Not a member or insufficient role |
+| `ORG_NOT_FOUND` | 404 | Org does not exist |
+| `LEAD_NOT_FOUND` | 404 | Lead not found (or anti-IDOR) |
+| `MEMBER_NOT_FOUND` | 404 | Member not in org |
+| `EMAIL_ALREADY_USED` | 409 | Duplicate email on register |
+| `CONFLICT` | 409 | Prisma unique constraint (P2002) |
+| `INVITE_EXPIRED` | 410 | Invite token expired |
+| `INTERNAL_ERROR` | 500 | Unexpected error (no leak in prod) |
+
+### Throwing errors in code
+
+Always use `AppError` in services/guards:
+
+```ts
+throw new AppError('LEAD_NOT_FOUND', 404, 'Lead not found');
+```
+
+### Logging
+
+- `HttpLoggingInterceptor` logs every request as structured JSON
+- Fields: `requestId`, `method`, `path`, `status`, `durationMs`, `userId`, `orgId`
+- Levels: 2xx → info, 4xx → warn, 5xx → error
+
 ## Multi-tenant Rules
 
 - **RLS** (Row-Level Security) is enforced at the DB level on all tenant-scoped tables.
