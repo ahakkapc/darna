@@ -117,11 +117,19 @@ export class AuthService {
   }
 
   private async issueTokens(userId: string, email?: string) {
-    const userEmail =
-      email ??
-      (await this.prisma.user.findUnique({ where: { id: userId } }))?.email;
+    const user = email
+      ? undefined
+      : await this.prisma.user.findUnique({ where: { id: userId } });
+    const userEmail = email ?? user?.email;
+    const platformRole = user?.platformRole ?? (
+      email ? (await this.prisma.user.findUnique({ where: { id: userId }, select: { platformRole: true } }))?.platformRole : undefined
+    );
 
-    const accessToken = this.jwt.sign({ sub: userId, email: userEmail });
+    const accessToken = this.jwt.sign({
+      sub: userId,
+      email: userEmail,
+      ...(platformRole ? { platformRole } : {}),
+    });
 
     const refreshTokenRaw = randomBytes(REFRESH_TOKEN_BYTES).toString('hex');
     const tokenHash = this.hashToken(refreshTokenRaw);

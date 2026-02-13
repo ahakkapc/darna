@@ -129,6 +129,26 @@ export class OrgService {
     return { ok: true };
   }
 
+  async updateProfile(callerUserId: string, orgId: string, dto: { name?: string; persona?: string; phone?: string; addressLine?: string; registryNumber?: string; registryCity?: string }) {
+    await this.assertRole(callerUserId, orgId, [OrgRole.OWNER, OrgRole.MANAGER]);
+
+    const data: Record<string, unknown> = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.persona !== undefined) data.persona = dto.persona;
+    if (dto.phone !== undefined) data.phone = dto.phone;
+    if (dto.addressLine !== undefined) data.addressLine = dto.addressLine;
+    if (dto.registryNumber !== undefined) data.registryNumber = dto.registryNumber;
+    if (dto.registryCity !== undefined) data.registryCity = dto.registryCity;
+
+    const org = await this.prisma.org.update({
+      where: { id: orgId },
+      data,
+      select: { id: true, name: true, persona: true, phone: true, addressLine: true, registryNumber: true, registryCity: true, kycStatus: true, isVerifiedPro: true },
+    });
+
+    return org;
+  }
+
   private async assertRole(userId: string, orgId: string, allowedRoles: OrgRole[]) {
     const membership = await this.prisma.orgMembership.findUnique({
       where: { userId_orgId: { userId, orgId } },

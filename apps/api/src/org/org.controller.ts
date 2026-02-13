@@ -5,16 +5,20 @@ import {
   Patch,
   Body,
   Param,
+  Req,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OrgContextGuard } from '../tenancy/org-context.guard';
 import { CurrentUser, CurrentUserPayload } from '../auth/current-user.decorator';
 import { OrgService } from './org.service';
 import { CreateOrgDto } from './dto/create-org.dto';
 import { InviteDto } from './dto/invite.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
+import { UpdateOrgProfileDto } from './dto/update-org-profile.dto';
 
 @Controller('orgs')
 @UseGuards(JwtAuthGuard)
@@ -64,5 +68,16 @@ export class OrgController {
     @Body() dto: ChangeRoleDto,
   ) {
     return this.orgService.changeRole(user.userId, orgId, userId, dto);
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard, OrgContextGuard)
+  updateProfile(
+    @CurrentUser() user: CurrentUserPayload,
+    @Req() req: Request,
+    @Body() dto: UpdateOrgProfileDto,
+  ) {
+    const orgId = (req as any).orgId as string;
+    return this.orgService.updateProfile(user.userId, orgId, dto);
   }
 }

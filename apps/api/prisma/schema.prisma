@@ -14,17 +14,104 @@ enum OrgRole {
   VIEWER
 }
 
+enum ProPersona {
+  AGENCY
+  INDEPENDENT_AGENT
+  DEVELOPER
+}
+
+enum KycStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  NEEDS_CHANGES
+  VERIFIED
+  REJECTED
+}
+
+enum ModerationStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum PlanCode {
+  AGENCY_DISCOVERY
+  AGENCY_PRO
+  AGENCY_PREMIUM
+  INDE_SOLO
+  DEV_STANDARD
+  DEV_PREMIUM
+}
+
+enum SubscriptionStatus {
+  INACTIVE
+  PENDING_PAYMENT
+  ACTIVE
+  SUSPENDED
+  CANCELED
+}
+
+enum ListingType {
+  APARTMENT
+  HOUSE
+  VILLA
+  LAND
+  COMMERCIAL
+  OFFICE
+  OTHER
+}
+
+enum ListingDealType {
+  SALE
+  RENT
+  SEASONAL
+}
+
+enum ListingStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  SOLD
+  RENTED
+  EXPIRED
+}
+
+enum ListingVisibility {
+  PLATFORM
+  PRIVATE_INTERNAL
+}
+
+enum PhotoQualityStatus {
+  REJECTED
+  NEEDS_IMPROVEMENT
+  OK
+}
+
+enum RecordStatus {
+  ACTIVE
+  DELETED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
   passwordHash String
   name         String?
+  platformRole String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  memberships   OrgMembership[]
-  refreshTokens RefreshToken[]
+  memberships     OrgMembership[]
+  refreshTokens   RefreshToken[]
   acceptedInvites OrgInvite[] @relation("AcceptedBy")
+  ownedListings   Listing[]   @relation("ListingOwner")
+  createdListings Listing[]   @relation("ListingCreatedBy")
 
   @@map("users")
 }
@@ -32,12 +119,31 @@ model User {
 model Org {
   id        String   @id @default(uuid())
   name      String
+  persona   ProPersona?
+
+  kycStatus     KycStatus @default(NOT_SUBMITTED)
+  isVerifiedPro Boolean   @default(false)
+
+  registryNumber String?
+  registryCity   String?
+  phone          String?
+  addressLine    String?
+
+  kycSubmittedAt        DateTime?
+  kycVerifiedAt         DateTime?
+  kycReviewedByUserId   String?
+  kycRejectionReason    String?
+  kycNotes              String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  leads       Lead[]
-  memberships OrgMembership[]
-  invites     OrgInvite[]
+  leads         Lead[]
+  memberships   OrgMembership[]
+  invites       OrgInvite[]
+  kycRequests   KycRequest[]
+  subscriptions Subscription[]
+  listings      Listing[]
 
   @@map("orgs")
 }
@@ -101,8 +207,181 @@ model Lead {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  org Org @relation(fields: [orgId], references: [id])
+  org              Org                    @relation(fields: [orgId], references: [id])
+  listingRelations ListingLeadRelation[]
 
   @@index([orgId])
   @@map("leads")
+}
+
+model KycRequest {
+  id             String    @id @default(uuid())
+  organizationId String
+
+  status         KycStatus @default(SUBMITTED)
+
+  registryNumber String
+  registryCity   String?
+  legalName      String?
+  contactName    String?
+  contactPhone   String?
+
+  submittedAt      DateTime  @default(now())
+  reviewedAt       DateTime?
+  reviewedByUserId String?
+  decisionReason   String?
+  notes            String?
+
+  recordStatus RecordStatus @default(ACTIVE)
+
+  organization Org @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, submittedAt])
+  @@index([status, submittedAt])
+  @@map("kyc_requests")
+}
+
+model Subscription {
+  id             String             @id @default(uuid())
+  organizationId String
+
+  planCode PlanCode
+  status   SubscriptionStatus @default(PENDING_PAYMENT)
+
+  startAt DateTime?
+  endAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments     OfflinePayment[]
+  organization Org @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model OfflinePayment {
+  id             String        @id @default(uuid())
+  organizationId String
+  subscriptionId String
+
+  amountDa Int
+  currency String @default("DZD")
+  method   String
+
+  status          PaymentStatus @default(PENDING)
+  reference       String?
+  submittedAt     DateTime      @default(now())
+  reviewedAt      DateTime?
+  reviewedByUserId String?
+  rejectionReason  String?
+  notes            String?
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([organizationId, submittedAt])
+  @@index([status, submittedAt])
+  @@map("offline_payments")
+}
+
+model Listing {
+  id             String @id @default(uuid())
+  organizationId String
+
+  ownerUserId     String
+  createdByUserId String?
+
+  dealType   ListingDealType
+  type       ListingType
+  status     ListingStatus     @default(DRAFT)
+  visibility ListingVisibility @default(PLATFORM)
+
+  wilaya      String
+  commune     String?
+  quartier    String?
+  addressLine String?
+
+  title       String
+  description String?
+  priceDa     Int
+  surfaceM2   Int?
+  rooms       Int?
+  floor       Int?
+  hasElevator Boolean?
+  hasParking  Boolean?
+  hasBalcony  Boolean?
+  furnished   Boolean?
+
+  photoQualityScore        Int?
+  photoQualityStatus       PhotoQualityStatus?
+  photoQualityFeedbackJson Json?
+
+  publishedAt DateTime?
+  pausedAt    DateTime?
+
+  viewCount Int @default(0)
+  leadCount Int @default(0)
+
+  recordStatus    RecordStatus @default(ACTIVE)
+  deletedAt       DateTime?
+  deletedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner     User @relation("ListingOwner", fields: [ownerUserId], references: [id])
+  createdBy User? @relation("ListingCreatedBy", fields: [createdByUserId], references: [id])
+  org       Org   @relation(fields: [organizationId], references: [id])
+
+  moderation    ListingModeration?
+  leadRelations ListingLeadRelation[]
+
+  @@index([organizationId])
+  @@index([organizationId, ownerUserId])
+  @@index([organizationId, status])
+  @@index([organizationId, wilaya])
+  @@index([organizationId, dealType])
+  @@index([organizationId, updatedAt])
+  @@index([organizationId, recordStatus])
+  @@map("listings")
+}
+
+model ListingModeration {
+  id             String @id @default(uuid())
+  organizationId String
+  listingId      String @unique
+
+  status           ModerationStatus @default(PENDING_REVIEW)
+  submittedAt      DateTime         @default(now())
+  reviewedAt       DateTime?
+  reviewedByUserId String?
+
+  autoChecksJson Json?
+  decisionReason String?
+  notes          String?
+
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  @@index([status, submittedAt])
+  @@index([organizationId])
+  @@map("listing_moderations")
+}
+
+model ListingLeadRelation {
+  id             String @id @default(uuid())
+  organizationId String
+  listingId      String
+  leadId         String
+
+  createdAt DateTime @default(now())
+
+  listing Listing @relation(fields: [listingId], references: [id])
+  lead    Lead    @relation(fields: [leadId], references: [id])
+
+  @@unique([listingId, leadId])
+  @@index([organizationId])
+  @@map("listing_lead_relations")
 }
