@@ -1,0 +1,21 @@
+{
+  "name": "@darna/worker",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "ts-node --project tsconfig.json src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.0.0",
+    "sharp": "^0.33.0",
+    "@prisma/client": "^5.22.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.0.0"
+  }
+}

@@ -12,11 +12,12 @@ import { ModerationModule } from './moderation/moderation.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { AuditModule } from './audit/audit.module';
 import { StorageModule } from './storage/storage.module';
+import { JobsModule } from './jobs/jobs.module';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 import { SecurityHeadersMiddleware } from './common/middleware/security-headers.middleware';
 
 @Module({
-  imports: [PrismaModule, TenancyModule, AuthModule, OrgModule, LeadModule, KycModule, SubscriptionModule, ListingModule, ModerationModule, OnboardingModule, AuditModule, StorageModule],
+  imports: [PrismaModule, TenancyModule, AuthModule, OrgModule, LeadModule, KycModule, SubscriptionModule, ListingModule, ModerationModule, OnboardingModule, AuditModule, StorageModule, JobsModule],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {

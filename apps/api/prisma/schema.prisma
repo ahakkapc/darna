@@ -596,3 +596,58 @@ model UploadSession {
   @@index([organizationId, status])
   @@map("upload_sessions")
 }
+
+enum JobType {
+  AV_SCAN_DOCUMENT
+  IMAGE_DERIVATIVES
+  STORAGE_GC
+  NOTIFY_EMAIL
+}
+
+enum JobRunStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+model JobRun {
+  id             String       @id @default(uuid()) @db.Uuid
+  type           JobType
+  organizationId String?      @db.Uuid
+
+  idempotencyKey String?
+  payloadJson    Json
+  status         JobRunStatus @default(QUEUED)
+
+  attempts       Int          @default(0)
+  maxAttempts    Int          @default(3)
+
+  scheduledAt    DateTime     @default(now())
+  startedAt      DateTime?
+  finishedAt     DateTime?
+
+  lastErrorCode  String?
+  lastErrorJson  Json?
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([type, status, scheduledAt])
+  @@index([organizationId, status])
+  @@map("job_runs")
+}
+
+model JobLock {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String?  @db.Uuid
+  key            String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  @@unique([organizationId, key])
+  @@index([expiresAt])
+  @@map("job_locks")
+}

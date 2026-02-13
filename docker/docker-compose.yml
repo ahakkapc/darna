@@ -34,6 +34,20 @@ services:
       timeout: 3s
       retries: 20
 
+  redis:
+    image: redis:7-alpine
+    container_name: darna-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - darna_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 volumes:
   darna_db:
   darna_minio:
+  darna_redis:

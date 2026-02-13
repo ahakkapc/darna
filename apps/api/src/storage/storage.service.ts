@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3ClientService } from './s3.client';
+import { JobsService } from '../jobs/jobs.service';
 import { AppError } from '../common/errors/app-error';
 import { withOrg } from '../tenancy/with-org';
 import { verifyMagicBytes, isAllowedMime, maxSizeForMime, sanitizeFilename } from './magic-bytes';
@@ -14,6 +15,7 @@ export class StorageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3: S3ClientService,
+    private readonly jobsService: JobsService,
   ) {}
 
   async presign(orgId: string, userId: string, dto: { mimeType: string; sizeBytes: number; originalFilename: string }) {
@@ -111,7 +113,7 @@ export class StorageService {
     this.validateKindMime(dto.document.kind, session.mimeType);
 
     // Phase 2: create blob + doc + version + link (all in one transaction)
-    return withOrg(this.prisma, orgId, async (tx) => {
+    const result = await withOrg(this.prisma, orgId, async (tx) => {
       let blob = await tx.fileBlob.findFirst({
         where: { organizationId: orgId, sha256: dto.sha256 },
       });
@@ -179,8 +181,30 @@ export class StorageService {
         },
       });
 
-      return { documentId: doc.id, versionId: version.id, fileBlobId: blob.id };
+      return { documentId: doc.id, versionId: version.id, fileBlobId: blob.id, _kind: dto.document.kind };
     });
+
+    // Enqueue jobs after successful confirm (outside transaction)
+    this.enqueuePostConfirmJobs(orgId, result.fileBlobId, result._kind, userId).catch(() => {});
+
+    return { documentId: result.documentId, versionId: result.versionId, fileBlobId: result.fileBlobId };
+  }
+
+  private async enqueuePostConfirmJobs(orgId: string, fileBlobId: string, kind: string, userId: string) {
+    await this.jobsService.enqueue('AV_SCAN_DOCUMENT', {
+      organizationId: orgId,
+      fileBlobId,
+      actorUserId: userId,
+    }, { organizationId: orgId, idempotencyKey: `avscan:${fileBlobId}` });
+
+    if (kind === 'IMAGE') {
+      await this.jobsService.enqueue('IMAGE_DERIVATIVES', {
+        organizationId: orgId,
+        fileBlobId,
+        presets: ['thumb', 'card', 'full'],
+        actorUserId: userId,
+      }, { organizationId: orgId, idempotencyKey: `deriv:${fileBlobId}:v1` });
+    }
   }
 
   async newVersion(orgId: string, userId: string, documentId: string, dto: {
@@ -225,7 +249,7 @@ export class StorageService {
     }
 
     // Phase 2: create blob + version in transaction
-    return withOrg(this.prisma, orgId, async (tx) => {
+    const nvResult = await withOrg(this.prisma, orgId, async (tx) => {
       let blob = await tx.fileBlob.findFirst({
         where: { organizationId: orgId, sha256: dto.sha256 },
       });
@@ -275,8 +299,13 @@ export class StorageService {
         data: { status: 'CONFIRMED', sha256: dto.sha256, etag: head.etag ?? dto.etag, documentId },
       });
 
-      return { versionId: version.id, version: nextVersion };
+      return { versionId: version.id, version: nextVersion, fileBlobId: blob.id };
     });
+
+    // Enqueue jobs after new version (outside transaction)
+    this.enqueuePostConfirmJobs(orgId, nvResult.fileBlobId, doc.kind, userId).catch(() => {});
+
+    return { versionId: nvResult.versionId, version: nvResult.version };
   }
 
   async getDocument(orgId: string, documentId: string) {
