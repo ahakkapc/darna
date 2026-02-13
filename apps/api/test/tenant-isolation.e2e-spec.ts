@@ -30,7 +30,16 @@ describe('SPEC-01 — Tenant Isolation (e2e)', () => {
     prisma = app.get(PrismaService);
 
     // Clean slate
+    await prisma.orgOnboarding.deleteMany();
+    await prisma.listingModeration.deleteMany();
+    await prisma.listingLeadRelation.deleteMany();
+    await prisma.listing.deleteMany();
+    await prisma.offlinePayment.deleteMany();
+    await prisma.subscription.deleteMany();
+    await prisma.kycRequest.deleteMany();
     await prisma.lead.deleteMany();
+    await prisma.orgInvite.deleteMany();
+    await prisma.orgMembership.deleteMany();
     await prisma.org.deleteMany();
 
     // Seed: Org A + Org B
@@ -54,7 +63,16 @@ describe('SPEC-01 — Tenant Isolation (e2e)', () => {
   });
 
   afterAll(async () => {
+    await prisma.orgOnboarding.deleteMany();
+    await prisma.listingModeration.deleteMany();
+    await prisma.listingLeadRelation.deleteMany();
+    await prisma.listing.deleteMany();
+    await prisma.offlinePayment.deleteMany();
+    await prisma.subscription.deleteMany();
+    await prisma.kycRequest.deleteMany();
     await prisma.lead.deleteMany();
+    await prisma.orgInvite.deleteMany();
+    await prisma.orgMembership.deleteMany();
     await prisma.org.deleteMany();
     await app.close();
   });

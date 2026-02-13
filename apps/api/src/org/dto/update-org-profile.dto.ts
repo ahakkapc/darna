@@ -17,6 +17,11 @@ export class UpdateOrgProfileDto {
 
   @IsOptional()
   @IsString()
+  @Length(2, 80)
+  wilaya?: string;
+
+  @IsOptional()
+  @IsString()
   @Length(2, 200)
   addressLine?: string;
 

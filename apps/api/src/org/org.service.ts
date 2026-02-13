@@ -129,13 +129,14 @@ export class OrgService {
     return { ok: true };
   }
 
-  async updateProfile(callerUserId: string, orgId: string, dto: { name?: string; persona?: string; phone?: string; addressLine?: string; registryNumber?: string; registryCity?: string }) {
+  async updateProfile(callerUserId: string, orgId: string, dto: { name?: string; persona?: string; phone?: string; wilaya?: string; addressLine?: string; registryNumber?: string; registryCity?: string }) {
     await this.assertRole(callerUserId, orgId, [OrgRole.OWNER, OrgRole.MANAGER]);
 
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.persona !== undefined) data.persona = dto.persona;
     if (dto.phone !== undefined) data.phone = dto.phone;
+    if (dto.wilaya !== undefined) data.wilaya = dto.wilaya;
     if (dto.addressLine !== undefined) data.addressLine = dto.addressLine;
     if (dto.registryNumber !== undefined) data.registryNumber = dto.registryNumber;
     if (dto.registryCity !== undefined) data.registryCity = dto.registryCity;
@@ -143,7 +144,7 @@ export class OrgService {
     const org = await this.prisma.org.update({
       where: { id: orgId },
       data,
-      select: { id: true, name: true, persona: true, phone: true, addressLine: true, registryNumber: true, registryCity: true, kycStatus: true, isVerifiedPro: true },
+      select: { id: true, name: true, persona: true, phone: true, wilaya: true, addressLine: true, registryNumber: true, registryCity: true, kycStatus: true, isVerifiedPro: true },
     });
 
     return org;

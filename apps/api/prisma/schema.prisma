@@ -98,6 +98,22 @@ enum RecordStatus {
   DELETED
 }
 
+enum OnboardingStep {
+  ORG_PROFILE
+  COLLABORATORS
+  PLAN
+  PAYMENT_OFFLINE
+  KYC
+  FIRST_LISTING
+  DONE
+}
+
+enum OnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -127,6 +143,7 @@ model Org {
   registryNumber String?
   registryCity   String?
   phone          String?
+  wilaya         String?
   addressLine    String?
 
   kycSubmittedAt        DateTime?
@@ -144,6 +161,7 @@ model Org {
   kycRequests   KycRequest[]
   subscriptions Subscription[]
   listings      Listing[]
+  onboarding    OrgOnboarding?
 
   @@map("orgs")
 }
@@ -384,4 +402,24 @@ model ListingLeadRelation {
   @@unique([listingId, leadId])
   @@index([organizationId])
   @@map("listing_lead_relations")
+}
+
+model OrgOnboarding {
+  id             String            @id @default(uuid())
+  orgId          String            @unique
+
+  status         OnboardingStatus  @default(NOT_STARTED)
+  currentStep    OnboardingStep    @default(ORG_PROFILE)
+
+  completedStepsJson Json?
+
+  startedAt      DateTime?
+  completedAt    DateTime?
+  updatedAt      DateTime          @updatedAt
+
+  org            Org               @relation(fields: [orgId], references: [id])
+
+  @@index([status])
+  @@index([orgId])
+  @@map("org_onboardings")
 }
