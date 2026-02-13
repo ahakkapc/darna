@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16
+    container_name: darna-db
     environment:
       POSTGRES_USER: darna
       POSTGRES_PASSWORD: darna
@@ -9,6 +10,11 @@ services:
       - "5433:5432"
     volumes:
       - darna_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U darna -d darna"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
 volumes:
   darna_db:
