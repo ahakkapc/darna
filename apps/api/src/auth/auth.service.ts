@@ -92,6 +92,8 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        phone: true,
+        phoneVerifiedAt: true,
         memberships: {
           select: {
             orgId: true,
@@ -107,7 +109,13 @@ export class AuthService {
     }
 
     return {
-      user: { id: user.id, email: user.email, name: user.name },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        phoneVerifiedAt: user.phoneVerifiedAt,
+      },
       orgs: user.memberships.map((m) => ({
         orgId: m.orgId,
         name: m.org.name,

@@ -1,0 +1,39 @@
+:root {
+  --bg-0: #070A0F;
+  --bg-1: #0B1220;
+  --bg-2: #0F1A2B;
+
+  --line: rgba(255,255,255,0.08);
+
+  --text: #EAF0F6;
+  --muted: rgba(234,240,246,0.70);
+  --muted-2: rgba(234,240,246,0.52);
+
+  --brand-copper: #D8A24A;
+  --brand-copper-2: #B9822A;
+  --brand-blue: #4DA3FF;
+  --brand-ink: #1A2A45;
+
+  --success: #2ECC71;
+  --warning: #F5A524;
+  --danger: #FF4D4F;
+  --info: #7C5CFF;
+
+  --shadow-1: 0 1px 0 rgba(255,255,255,0.06);
+  --shadow-2: 0 18px 60px rgba(0,0,0,0.55);
+
+  --radius-card: 16px;
+  --radius-input: 12px;
+  --radius-drawer: 20px;
+  --radius-pill: 999px;
+
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+
+  --grad-brand: linear-gradient(135deg, #D8A24A 0%, #B9822A 55%, #4DA3FF 100%);
+  --grad-surface: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.00));
+}

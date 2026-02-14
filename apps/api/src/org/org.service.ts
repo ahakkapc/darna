@@ -15,11 +15,14 @@ export class OrgService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(userId: string, dto: CreateOrgDto) {
-    const org = await this.prisma.org.create({ data: { name: dto.name } });
-    await this.prisma.orgMembership.create({
-      data: { userId, orgId: org.id, role: OrgRole.OWNER },
+    const result = await this.prisma.$transaction(async (tx) => {
+      const org = await tx.org.create({ data: { name: dto.name } });
+      await tx.orgMembership.create({
+        data: { userId, orgId: org.id, role: OrgRole.OWNER },
+      });
+      return { orgId: org.id, name: org.name };
     });
-    return { orgId: org.id, name: org.name };
+    return result;
   }
 
   async listForUser(userId: string) {

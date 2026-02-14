@@ -29,6 +29,7 @@ function flattenErrors(
 describe('SPEC-03 — Error Model + RequestId + Logging (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let authCookies: string[];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -59,6 +60,18 @@ describe('SPEC-03 — Error Model + RequestId + Logging (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+
+    // Register + login a user for authenticated guard tests
+    const uniqueEmail = `errmodel-${Date.now()}@test.com`;
+    await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({ email: uniqueEmail, password: 'password1234', name: 'ErrTest' })
+      .expect(201);
+    const loginRes = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: uniqueEmail, password: 'password1234' })
+      .expect(200);
+    authCookies = loginRes.headers['set-cookie'] as unknown as string[];
   });
 
   afterAll(async () => {
@@ -113,18 +126,20 @@ describe('SPEC-03 — Error Model + RequestId + Logging (e2e)', () => {
       expect(res.body.error.code).toBe('UNAUTHENTICATED');
     });
 
-    it('missing x-org-id on tenant route → 400 ORG_CONTEXT_REQUIRED', async () => {
+    it('missing x-org-id on tenant route (authenticated) → 400 ORG_CONTEXT_REQUIRED', async () => {
       const res = await request(app.getHttpServer())
-        .get('/api/leads')
+        .get('/api/crm/leads')
+        .set('Cookie', authCookies)
         .expect(400);
 
       expect(res.body.error.code).toBe('ORG_CONTEXT_REQUIRED');
       expect(res.body.requestId).toBeDefined();
     });
 
-    it('invalid UUID in x-org-id → 400 ORG_CONTEXT_INVALID', async () => {
+    it('invalid UUID in x-org-id (authenticated) → 400 ORG_CONTEXT_INVALID', async () => {
       const res = await request(app.getHttpServer())
-        .get('/api/leads')
+        .get('/api/crm/leads')
+        .set('Cookie', authCookies)
         .set('x-org-id', 'not-a-uuid')
         .expect(400);
 

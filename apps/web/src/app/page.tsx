@@ -1,73 +1,66 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
-interface HealthResponse {
-  ok: boolean;
-  db: boolean;
-}
+import { useRouter } from 'next/navigation';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 
 export default function Home() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data: HealthResponse) => {
-        setHealth(data);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
+  const router = useRouter();
 
   return (
-    <main
-      style={{
+    <Box
+      sx={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        fontFamily: 'system-ui, sans-serif',
-        gap: '1rem',
+        bgcolor: 'var(--bg-0)',
+        p: 'var(--space-24)',
+        gap: 'var(--space-32)',
       }}
     >
-      <h1 style={{ fontSize: '2rem', fontWeight: 700 }}>Darna</h1>
-
-      {loading && <p>Checking API…</p>}
-
-      {error && (
-        <p style={{ color: 'red' }}>
-          API Error: {error}
-        </p>
-      )}
-
-      {health && (
-        <div
-          style={{
-            padding: '1.5rem 2rem',
-            borderRadius: '8px',
-            background: health.ok ? '#e6ffe6' : '#ffe6e6',
-            border: `1px solid ${health.ok ? '#00cc00' : '#cc0000'}`,
-            textAlign: 'center',
+      <Box sx={{ textAlign: 'center' }}>
+        <Typography
+          sx={{
+            fontSize: '48px',
+            fontWeight: 700,
+            lineHeight: 1.1,
+            mb: 'var(--space-12)',
+            background: 'var(--grad-brand)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
           }}
         >
-          <p style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-            {health.ok ? '✅ API OK' : '❌ API Down'}
-          </p>
-          <p style={{ fontSize: '0.9rem', marginTop: '0.5rem', color: '#555' }}>
-            DB: {health.db ? 'Connected' : 'Disconnected'}
-          </p>
-        </div>
-      )}
-    </main>
+          Darna
+        </Typography>
+        <Typography sx={{ color: 'var(--muted)', fontSize: '16px', maxWidth: 440, mx: 'auto' }}>
+          Plateforme de gestion immobilière — CRM, documents, annonces et plus.
+        </Typography>
+      </Box>
+
+      <Box sx={{ display: 'flex', gap: 'var(--space-12)' }}>
+        <Button variant="contained" size="large" onClick={() => router.push('/app/crm/leads')}>
+          Accéder au CRM
+        </Button>
+        <Button variant="outlined" size="large" onClick={() => router.push('/login')}>
+          Se connecter
+        </Button>
+      </Box>
+
+      <Card sx={{ maxWidth: 400, width: '100%' }}>
+        <CardContent sx={{ textAlign: 'center' }}>
+          <Typography variant="h2" sx={{ mb: 'var(--space-8)' }}>
+            Sprint 3.1
+          </Typography>
+          <Typography sx={{ color: 'var(--muted)', fontSize: '13px' }}>
+            Notifications réelles (email + WhatsApp) — Charte premium globale — Stabilisation
+          </Typography>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }

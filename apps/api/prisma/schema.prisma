@@ -98,6 +98,160 @@ enum RecordStatus {
   DELETED
 }
 
+enum CalendarEventType {
+  VISIT
+  SIGNING
+  CALL_SLOT
+  MEETING
+  OTHER
+}
+
+enum CalendarEventStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELED
+  NO_SHOW
+}
+
+enum CalendarVisibility {
+  INTERNAL
+  MANAGER_ONLY
+}
+
+enum ExternalCalendarProvider {
+  GOOGLE
+  OUTLOOK
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ReminderStatus {
+  SCHEDULED
+  SENT
+  CANCELED
+}
+
+enum LeadStatus {
+  NEW
+  TO_CONTACT
+  VISIT_SCHEDULED
+  OFFER_IN_PROGRESS
+  WON
+  LOST
+}
+
+enum LeadType {
+  BUYER
+  TENANT
+  SELLER
+  LANDLORD
+  INVESTOR
+}
+
+enum LeadSourceType {
+  PLATFORM_CONTACT_FORM
+  PRICE_ESTIMATION
+  SAVED_SEARCH
+  SOCIAL_CAMPAIGN
+  MANUAL
+  IMPORT
+  META_LEAD_ADS
+  WHATSAPP_INBOX
+}
+
+enum LeadPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum LeadRelationType {
+  LISTING
+  PROGRAM
+  LOT
+  OTHER
+}
+
+// ─── SPEC-16: Meta Lead Ads ─────────────────────────────
+enum LeadRoutingStrategy {
+  ROUND_ROBIN
+  MANAGER_ASSIGN
+  NONE
+}
+
+enum ActivityType {
+  NOTE
+  CALL
+  SMS
+  EMAIL
+  VISIT
+  SYSTEM_EVENT
+  WHATSAPP_INBOUND
+  WHATSAPP_SENT
+  OPT_OUT
+}
+
+enum ActivityDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum CallOutcome {
+  ANSWERED
+  NO_ANSWER
+  BUSY
+  VOICEMAIL
+  WRONG_NUMBER
+}
+
+enum ActivityVisibility {
+  INTERNAL
+  MANAGER_ONLY
+}
+
+enum SystemEventKind {
+  LEAD_CREATED
+  STATUS_CHANGED
+  OWNER_ASSIGNED
+  MARKED_LOST
+  MARKED_WON
+  LEAD_DELETED
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationDispatchState {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  DEAD
+  CANCELED
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 enum OnboardingStep {
   ORG_PROFILE
   COLLABORATORS
@@ -159,15 +313,18 @@ model User {
   email        String   @unique
   passwordHash String
   name         String?
-  platformRole String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  platformRole     String?
+  phone            String?
+  phoneVerifiedAt  DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   memberships     OrgMembership[]
   refreshTokens   RefreshToken[]
   acceptedInvites OrgInvite[] @relation("AcceptedBy")
   ownedListings   Listing[]   @relation("ListingOwner")
   createdListings Listing[]   @relation("ListingCreatedBy")
+  calendarEventsAssigned CalendarEvent[] @relation("CalendarEventAssignee")
 
   @@map("users")
 }
@@ -257,19 +414,96 @@ model OrgInvite {
 }
 
 model Lead {
-  id        String   @id @default(uuid())
-  orgId     String
-  fullName  String
-  phone     String?
-  email     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String         @id @default(uuid())
+  organizationId  String
 
-  org              Org                    @relation(fields: [orgId], references: [id])
+  fullName        String
+  phone           String?
+  email           String?
+
+  type            LeadType       @default(BUYER)
+  status          LeadStatus     @default(NEW)
+  priority        LeadPriority   @default(MEDIUM)
+
+  ownerUserId     String?
+  createdByUserId String?
+
+  budgetMin       Int?
+  budgetMax       Int?
+  wilaya          String?
+  commune         String?
+  quartier        String?
+  propertyType    String?
+  surfaceMin      Int?
+  notes           String?
+
+  sourceType      LeadSourceType @default(MANUAL)
+  sourceRefJson   Json?
+  externalProvider String?
+  externalLeadId   String?
+  sourceMetaJson   Json?
+
+  tagsJson        Json?
+
+  lastContactAt   DateTime?
+  nextActionAt    DateTime?
+
+  lostReason      String?
+  wonNote         String?
+
+  statusChangedAt DateTime?
+  wonAt           DateTime?
+  lostAt          DateTime?
+
+  doNotContact            Boolean    @default(false)
+  doNotContactChannelsJson Json?
+  doNotContactReason      String?
+  doNotContactAt          DateTime?
+
+  recordStatus    RecordStatus   @default(ACTIVE)
+  deletedAt       DateTime?
+  deletedByUserId String?
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  org              Org                    @relation(fields: [organizationId], references: [id])
   listingRelations ListingLeadRelation[]
+  activities       LeadActivity[]
+  relations        LeadRelation[]
+  tasks            Task[]
+  calendarEvents   CalendarEvent[]
+  commEvents       CommEvent[]
+  sequenceRuns     MessageSequenceRun[]
 
-  @@index([orgId])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, ownerUserId])
+  @@index([organizationId, type])
+  @@index([organizationId, nextActionAt])
+  @@index([organizationId, recordStatus])
+  @@index([organizationId, updatedAt])
+  @@unique([organizationId, externalProvider, externalLeadId])
   @@map("leads")
+}
+
+model LeadRelation {
+  id             String           @id @default(uuid())
+  organizationId String
+
+  leadId         String
+  relationType   LeadRelationType
+  targetId       String
+  label          String?
+  createdAt      DateTime         @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id])
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([relationType, targetId])
+  @@unique([leadId, relationType, targetId])
+  @@map("lead_relations")
 }
 
 model KycRequest {
@@ -602,6 +836,72 @@ enum JobType {
   IMAGE_DERIVATIVES
   STORAGE_GC
   NOTIFY_EMAIL
+  NOTIFY_WHATSAPP
+  ORG_TICK_TASKS
+  INBOUND_PROCESS_EVENT
+  OUTBOUND_PROCESS_JOB
+  INTEGRATION_HEALTHCHECK
+  META_LEADGEN_BACKFILL
+  INBOX_SLA_TICK
+  COMM_BACKFILL_THREAD
+  SEQUENCE_TICK
+}
+
+// ─── SPEC-30: Integrations Framework ──────────────────────
+
+enum IntegrationType {
+  META_LEADGEN
+  WHATSAPP_PROVIDER
+  EMAIL_PROVIDER
+  EMAIL_INBOUND
+  GENERIC_WEBHOOK
+}
+
+enum IntegrationProvider {
+  META_CLOUD
+  TWILIO
+  RESEND
+  SENDGRID
+  SMTP
+  GENERIC
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  DISABLED
+  ERROR
+}
+
+enum InboundEventSourceType {
+  META_LEADGEN
+  WHATSAPP_INBOUND
+  EMAIL_INBOUND
+  GENERIC_WEBHOOK
+}
+
+enum InboundEventStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  ERROR
+  DEAD
+  DUPLICATE
+  IGNORED
+}
+
+enum OutboundJobType {
+  WHATSAPP_MESSAGE
+  EMAIL_MESSAGE
+  GENERIC_HTTP_CALL
+}
+
+enum OutboundJobStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  DEAD
+  CANCELED
 }
 
 enum JobRunStatus {
@@ -650,4 +950,759 @@ model JobLock {
   @@unique([organizationId, key])
   @@index([expiresAt])
   @@map("job_locks")
+}
+
+model Task {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+
+  leadId          String
+  title           String
+  description     String?
+  status          TaskStatus   @default(OPEN)
+  priority        TaskPriority @default(MEDIUM)
+
+  dueAt           DateTime?
+  completedAt     DateTime?
+
+  assigneeUserId  String?      @db.Uuid
+  createdByUserId String?      @db.Uuid
+
+  tagsJson        Json?
+
+  recordStatus    RecordStatus @default(ACTIVE)
+  deletedAt       DateTime?
+  deletedByUserId String?      @db.Uuid
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  lead            Lead         @relation(fields: [leadId], references: [id])
+  reminders       TaskReminder[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, assigneeUserId, status])
+  @@index([organizationId, dueAt])
+  @@index([leadId, createdAt])
+  @@index([organizationId, recordStatus])
+  @@index([organizationId, updatedAt])
+  @@map("tasks")
+}
+
+model TaskReminder {
+  id              String         @id @default(uuid()) @db.Uuid
+  organizationId  String         @db.Uuid
+
+  taskId          String         @db.Uuid
+  remindAt        DateTime
+  status          ReminderStatus @default(SCHEDULED)
+
+  sentAt          DateTime?
+  canceledAt      DateTime?
+
+  dedupeKey       String
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  task            Task           @relation(fields: [taskId], references: [id])
+
+  @@index([organizationId, remindAt, status])
+  @@unique([organizationId, dedupeKey])
+  @@map("task_reminders")
+}
+
+model CalendarEvent {
+  id               String                @id @default(uuid()) @db.Uuid
+  organizationId   String                @db.Uuid
+
+  recordStatus     RecordStatus          @default(ACTIVE)
+  deletedAt        DateTime?
+  deletedByUserId  String?
+
+  type             CalendarEventType     @default(VISIT)
+  status           CalendarEventStatus   @default(SCHEDULED)
+  visibility       CalendarVisibility    @default(INTERNAL)
+
+  title            String
+  description      String?
+
+  startAt          DateTime
+  endAt            DateTime
+  timezone         String                @default("Africa/Algiers")
+
+  assigneeUserId   String
+  createdByUserId  String?
+  updatedByUserId  String?
+
+  leadId           String?
+  listingId        String?               @db.Uuid
+  targetType       String?
+  targetId         String?
+
+  wilaya           String?
+  commune          String?
+  quartier         String?
+  addressLine      String?
+
+  resultNote       String?
+  completedAt      DateTime?
+
+  cancelReason     String?
+  canceledAt       DateTime?
+
+  externalProvider ExternalCalendarProvider?
+  externalEventId  String?
+
+  autoTaskId       String?               @db.Uuid
+
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  assignee         User                  @relation("CalendarEventAssignee", fields: [assigneeUserId], references: [id])
+  lead             Lead?                 @relation(fields: [leadId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, assigneeUserId, startAt])
+  @@index([organizationId, status, startAt])
+  @@index([leadId])
+  @@index([autoTaskId])
+  @@map("calendar_events")
+}
+
+model LeadActivity {
+  id              String             @id @default(uuid()) @db.Uuid
+  organizationId  String             @db.Uuid
+  leadId          String
+
+  type            ActivityType
+  visibility      ActivityVisibility @default(INTERNAL)
+
+  createdByUserId String?            @db.Uuid
+  createdAt       DateTime           @default(now())
+
+  happenedAt      DateTime?
+  plannedAt       DateTime?
+  direction       ActivityDirection?
+
+  title           String?
+  body            String?
+  payloadJson     Json?
+
+  relatedDocumentId String?          @db.Uuid
+
+  recordStatus    RecordStatus       @default(ACTIVE)
+  deletedAt       DateTime?
+  deletedByUserId String?            @db.Uuid
+
+  lead            Lead               @relation(fields: [leadId], references: [id])
+
+  @@index([organizationId])
+  @@index([leadId, createdAt])
+  @@index([organizationId, type])
+  @@index([organizationId, recordStatus])
+  @@map("lead_activities")
+}
+
+model Notification {
+  id              String               @id @default(uuid()) @db.Uuid
+  organizationId  String               @db.Uuid
+  userId          String               @db.Uuid
+
+  category        String
+  priority        NotificationPriority @default(NORMAL)
+
+  templateKey     String
+  title           String
+  body            String?
+  linkUrl         String?
+
+  metaJson        Json?
+  dedupeKey       String?
+  dedupeWindowSec Int                  @default(600)
+
+  readAt          DateTime?
+  createdAt       DateTime             @default(now())
+
+  recordStatus    RecordStatus         @default(ACTIVE)
+  deletedAt       DateTime?
+  deletedByUserId String?              @db.Uuid
+
+  dispatches      NotificationDispatch[]
+
+  @@index([organizationId, userId, createdAt])
+  @@index([organizationId, userId, readAt])
+  @@index([organizationId, category, createdAt])
+  @@index([organizationId, dedupeKey, createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @db.Uuid
+  userId          String   @db.Uuid
+
+  category        String
+
+  inAppEnabled    Boolean  @default(true)
+  emailEnabled    Boolean  @default(false)
+  whatsappEnabled Boolean  @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([organizationId, userId, category])
+  @@index([organizationId, userId])
+  @@map("notification_preferences")
+}
+
+model NotificationDispatch {
+  id                String                    @id @default(uuid()) @db.Uuid
+  organizationId    String                    @db.Uuid
+  notificationId    String                    @db.Uuid
+
+  channel           NotificationChannel
+  state             NotificationDispatchState @default(PENDING)
+
+  to                String?
+  templateKey       String?
+  payloadJson       Json?
+
+  attempts          Int                       @default(0)
+  maxAttempts       Int                       @default(8)
+  nextAttemptAt     DateTime?                 @default(now())
+  lockedAt          DateTime?
+  lockedBy          String?
+
+  providerMessageId String?
+  lastErrorCode     String?
+  lastErrorMessage  String?
+  lastErrorJson     Json?
+
+  dedupeKey         String?
+
+  scheduledAt       DateTime                  @default(now())
+  sentAt            DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  notification      Notification              @relation(fields: [notificationId], references: [id])
+
+  @@index([state, nextAttemptAt])
+  @@index([organizationId, channel, state, scheduledAt])
+  @@index([notificationId, channel])
+  @@unique([organizationId, channel, dedupeKey])
+  @@map("notification_dispatches")
+}
+
+// ─── SPEC-30: Integration models ──────────────────────────
+
+model Integration {
+  id              String              @id @default(uuid()) @db.Uuid
+  organizationId  String              @db.Uuid
+
+  type            IntegrationType
+  provider        IntegrationProvider
+  status          IntegrationStatus   @default(ACTIVE)
+
+  name            String
+  configJson      Json?
+  healthJson      Json?
+
+  createdByUserId String?             @db.Uuid
+  updatedByUserId String?             @db.Uuid
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  secrets         IntegrationSecret[]
+  metaLeadSources MetaLeadSource[]
+
+  @@index([organizationId, type])
+  @@index([organizationId, status])
+  @@map("integrations")
+}
+
+model IntegrationSecret {
+  id              String      @id @default(uuid()) @db.Uuid
+  organizationId  String      @db.Uuid
+  integrationId   String      @db.Uuid
+
+  key             String
+  valueEnc        String
+  keyVersion      Int         @default(1)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  integration     Integration @relation(fields: [integrationId], references: [id])
+
+  @@unique([organizationId, integrationId, key])
+  @@index([integrationId])
+  @@map("integration_secrets")
+}
+
+model InboundEvent {
+  id              String                  @id @default(uuid()) @db.Uuid
+  organizationId  String                  @db.Uuid
+
+  sourceType      InboundEventSourceType
+  provider        IntegrationProvider
+  integrationId   String?                 @db.Uuid
+
+  externalId      String?
+  dedupeKey       String?
+
+  status          InboundEventStatus      @default(RECEIVED)
+  attemptCount    Int                     @default(0)
+  nextAttemptAt   DateTime?
+  lockedAt        DateTime?
+  lockedBy        String?
+
+  payloadJson     Json?
+  metaJson        Json?
+  lastErrorCode   String?
+  lastErrorMsg    String?
+
+  receivedAt      DateTime                @default(now())
+  processedAt     DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@index([organizationId, sourceType, receivedAt])
+  @@index([organizationId, status, nextAttemptAt])
+  @@unique([organizationId, sourceType, externalId])
+  @@unique([organizationId, sourceType, dedupeKey])
+  @@map("inbound_events")
+}
+
+model OutboundJob {
+  id              String              @id @default(uuid()) @db.Uuid
+  organizationId  String              @db.Uuid
+
+  type            OutboundJobType
+  provider        IntegrationProvider
+  integrationId   String?             @db.Uuid
+
+  status          OutboundJobStatus   @default(PENDING)
+  attemptCount    Int                 @default(0)
+  nextAttemptAt   DateTime?
+  lockedAt        DateTime?
+  lockedBy        String?
+
+  dedupeKey       String?
+  payloadJson     Json?
+  resultJson      Json?
+  lastErrorCode   String?
+  lastErrorMsg    String?
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([organizationId, status, nextAttemptAt])
+  @@unique([organizationId, type, dedupeKey])
+  @@map("outbound_jobs")
+}
+
+// ─── SPEC-16: Meta Lead Ads ──────────────────────────────
+
+model MetaLeadSource {
+  id                 String              @id @default(uuid()) @db.Uuid
+  organizationId     String              @db.Uuid
+  integrationId      String              @db.Uuid
+
+  pageId             String
+  pageName           String?
+  formId             String
+  formName           String?
+
+  isActive           Boolean             @default(true)
+
+  routingStrategy    LeadRoutingStrategy @default(ROUND_ROBIN)
+  defaultOwnerUserId String?             @db.Uuid
+
+  fieldMappingJson   Json?
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  integration        Integration         @relation(fields: [integrationId], references: [id])
+
+  @@unique([organizationId, pageId, formId])
+  @@index([integrationId])
+  @@index([organizationId, isActive])
+  @@map("meta_lead_sources")
+}
+
+model OrgRoutingState {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  rrCursorUserId String?  @db.Uuid
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId])
+  @@map("org_routing_states")
+}
+
+// ─── SPEC-35A: Inbox WhatsApp ─────────────────────────────
+
+enum InboxChannel {
+  WHATSAPP
+}
+
+enum ThreadStatus {
+  OPEN
+  PENDING
+  CLOSED
+}
+
+enum InboxMessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum InboxMessageStatus {
+  RECEIVED
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum LastMessageBy {
+  CUSTOMER
+  AGENT
+}
+
+enum ThreadActivityType {
+  ASSIGNED
+  UNASSIGNED
+  STATUS_CHANGED
+  LEAD_LINKED
+  LEAD_UNLINKED
+}
+
+model InboxThread {
+  id                 String        @id @default(uuid()) @db.Uuid
+  organizationId     String        @db.Uuid
+  channel            InboxChannel  @default(WHATSAPP)
+
+  phoneHash          String
+  phoneE164          String?
+  displayName        String?
+
+  leadId             String?       @db.Uuid
+  listingId          String?       @db.Uuid
+
+  status             ThreadStatus  @default(OPEN)
+
+  assignedToUserId   String?       @db.Uuid
+  assignedAt         DateTime?
+
+  lastMessageAt      DateTime?
+  lastMessagePreview String?
+  lastMessageBy      LastMessageBy?
+
+  unreadCount        Int           @default(0)
+  lastReadAt         DateTime?
+  unreplied          Boolean       @default(false)
+  unrepliedSince     DateTime?
+
+  integrationId      String?       @db.Uuid
+  externalThreadKey  String?
+
+  slaBreachedAt      DateTime?
+  slaEscalatedAt     DateTime?
+
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  messages           InboxMessage[]
+
+  @@index([organizationId, status, lastMessageAt])
+  @@index([organizationId, assignedToUserId, lastMessageAt])
+  @@index([organizationId, phoneHash])
+  @@index([organizationId, leadId])
+  @@map("inbox_threads")
+}
+
+model InboxMessage {
+  id                String                @id @default(uuid()) @db.Uuid
+  organizationId    String                @db.Uuid
+  threadId          String                @db.Uuid
+
+  direction         InboxMessageDirection
+  status            InboxMessageStatus    @default(RECEIVED)
+
+  occurredAt        DateTime              @default(now())
+
+  providerMessageId String?
+  externalKey       String?
+
+  bodyText          String?
+  mediaJson         Json?
+  metaJson          Json?
+
+  createdByUserId   String?               @db.Uuid
+  sentBySystem      Boolean               @default(false)
+
+  thread            InboxThread           @relation(fields: [threadId], references: [id])
+
+  @@index([threadId, occurredAt])
+  @@index([organizationId, providerMessageId])
+  @@unique([organizationId, providerMessageId])
+  @@map("inbox_messages")
+}
+
+model InboxThreadActivity {
+  id              String             @id @default(uuid()) @db.Uuid
+  organizationId  String             @db.Uuid
+  threadId        String             @db.Uuid
+  type            ThreadActivityType
+  payloadJson     Json?
+  createdByUserId String?            @db.Uuid
+  createdAt       DateTime           @default(now())
+
+  @@index([threadId, createdAt])
+  @@map("inbox_thread_activities")
+}
+
+// ─── SPEC-35B: Communication Hub ────────────────────────
+
+enum CommChannel {
+  WHATSAPP
+  EMAIL
+}
+
+enum CommDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum CommStatus {
+  RECEIVED
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  SKIPPED
+}
+
+model CommEvent {
+  id                String        @id @default(uuid()) @db.Uuid
+  organizationId    String        @db.Uuid
+
+  channel           CommChannel
+  direction         CommDirection
+  status            CommStatus
+
+  occurredAt        DateTime      @default(now())
+
+  leadId            String        @db.Uuid
+
+  inboundEventId    String?       @db.Uuid
+  outboundJobId     String?       @db.Uuid
+  inboxThreadId     String?       @db.Uuid
+  inboxMessageId    String?       @db.Uuid
+
+  providerMessageId String?
+  dedupeKey         String?
+
+  preview           String?
+  metaJson          Json?
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  lead              Lead          @relation(fields: [leadId], references: [id])
+
+  @@index([organizationId, leadId, occurredAt])
+  @@index([organizationId, channel, occurredAt])
+  @@unique([organizationId, channel, providerMessageId])
+  @@unique([organizationId, channel, dedupeKey])
+  @@index([outboundJobId])
+  @@index([inboundEventId])
+  @@map("comm_events")
+}
+
+// ─── SPEC-33: Templates & Séquences ─────────────────────
+
+enum MessageChannel {
+  WHATSAPP
+  EMAIL
+}
+
+enum TemplateStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum SequenceStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum SequenceRunStatus {
+  RUNNING
+  COMPLETED
+  CANCELED
+  FAILED
+}
+
+enum SequenceStepStatus {
+  PENDING
+  SCHEDULED
+  SENT
+  FAILED
+  SKIPPED
+  CANCELED
+}
+
+enum SequenceConditionKey {
+  LEAD_NOT_WON
+  LEAD_NOT_LOST
+  LEAD_STATUS_IN
+  HAS_VALID_PHONE
+  HAS_VALID_EMAIL
+}
+
+model MessageTemplate {
+  id              String         @id @default(uuid()) @db.Uuid
+  organizationId  String         @db.Uuid
+
+  channel         MessageChannel
+  status          TemplateStatus @default(DRAFT)
+
+  name            String
+  subject         String?
+  body            String
+
+  variablesJson   Json?
+  version         Int            @default(1)
+
+  createdByUserId String?        @db.Uuid
+  updatedByUserId String?        @db.Uuid
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  sequenceSteps   MessageSequenceStep[]
+
+  @@index([organizationId, channel, status])
+  @@map("message_templates")
+}
+
+model MessageSequence {
+  id              String         @id @default(uuid()) @db.Uuid
+  organizationId  String         @db.Uuid
+
+  status          SequenceStatus @default(DRAFT)
+  name            String
+  description     String?
+
+  defaultStartDelayMinutes Int   @default(0)
+  stopOnReply     Boolean        @default(true)
+
+  createdByUserId String?        @db.Uuid
+  updatedByUserId String?        @db.Uuid
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  steps           MessageSequenceStep[]
+  runs            MessageSequenceRun[]
+
+  @@index([organizationId, status])
+  @@map("message_sequences")
+}
+
+model MessageSequenceStep {
+  id              String         @id @default(uuid()) @db.Uuid
+  organizationId  String         @db.Uuid
+
+  sequenceId      String         @db.Uuid
+  orderIndex      Int
+
+  channel         MessageChannel
+  templateId      String         @db.Uuid
+
+  delayMinutes    Int
+  conditionsJson  Json?
+
+  createTaskJson  Json?
+  notifyJson      Json?
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  sequence        MessageSequence  @relation(fields: [sequenceId], references: [id])
+  template        MessageTemplate  @relation(fields: [templateId], references: [id])
+
+  @@unique([organizationId, sequenceId, orderIndex])
+  @@index([sequenceId])
+  @@map("message_sequence_steps")
+}
+
+model MessageSequenceRun {
+  id              String            @id @default(uuid()) @db.Uuid
+  organizationId  String            @db.Uuid
+
+  sequenceId      String            @db.Uuid
+  leadId          String            @db.Uuid
+
+  status          SequenceRunStatus @default(RUNNING)
+
+  startedAt       DateTime          @default(now())
+  stoppedAt       DateTime?
+
+  nextStepIndex   Int               @default(0)
+  nextStepAt      DateTime?
+
+  contextJson     Json?
+
+  createdByUserId String?           @db.Uuid
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  sequence        MessageSequence   @relation(fields: [sequenceId], references: [id])
+  lead            Lead              @relation(fields: [leadId], references: [id])
+  runSteps        MessageSequenceRunStep[]
+
+  @@unique([organizationId, sequenceId, leadId])
+  @@index([organizationId, leadId, status])
+  @@index([organizationId, status, nextStepAt])
+  @@map("message_sequence_runs")
+}
+
+model MessageSequenceRunStep {
+  id              String             @id @default(uuid()) @db.Uuid
+  organizationId  String             @db.Uuid
+
+  runId           String             @db.Uuid
+  stepId          String             @db.Uuid
+  orderIndex      Int
+
+  status          SequenceStepStatus @default(PENDING)
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+
+  outboundJobId   String?            @db.Uuid
+  lastErrorCode   String?
+  lastErrorMsg    String?
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  run             MessageSequenceRun @relation(fields: [runId], references: [id])
+
+  @@unique([organizationId, runId, orderIndex])
+  @@index([runId])
+  @@index([outboundJobId])
+  @@map("message_sequence_run_steps")
 }

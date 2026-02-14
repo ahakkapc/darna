@@ -25,7 +25,7 @@ function flattenErrors(
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.use(cookieParser());
 
   const allowedOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3010')

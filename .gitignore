@@ -1,7 +1,14 @@
 node_modules/
 dist/
+build/
+out/
 .next/
+.turbo/
+.cache/
+.vite/
+coverage/
 .env
 .env.*
 !.env.example
 *.tsbuildinfo
+*.log

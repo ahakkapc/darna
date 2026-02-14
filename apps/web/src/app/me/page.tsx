@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
 import { api } from '../../lib/api';
 
 interface OrgInfo {
@@ -11,24 +18,20 @@ interface OrgInfo {
 }
 
 interface MeResponse {
-  user: { id: string; email: string; name: string | null };
+  user: { id: string; email: string; name: string | null; phone?: string | null; phoneVerifiedAt?: string | null };
   orgs: OrgInfo[];
 }
 
 export default function MePage() {
   const router = useRouter();
   const [data, setData] = useState<MeResponse | null>(null);
-  const [error, setError] = useState('');
   const [activeOrg, setActiveOrg] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveOrg(localStorage.getItem('activeOrgId'));
     api<MeResponse>('/auth/me')
       .then(setData)
-      .catch(() => {
-        setError('Not authenticated');
-        router.push('/login');
-      });
+      .catch(() => router.push('/login'));
   }, [router]);
 
   function selectOrg(orgId: string) {
@@ -42,118 +45,83 @@ export default function MePage() {
     router.push('/login');
   }
 
-  if (error) return <p style={{ textAlign: 'center', marginTop: '2rem' }}>{error}</p>;
-  if (!data) return <p style={{ textAlign: 'center', marginTop: '2rem' }}>Loading...</p>;
+  if (!data) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', bgcolor: 'var(--bg-0)' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <main style={styles.main}>
-      <h1 style={styles.title}>My Profile</h1>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'var(--bg-0)', p: 'var(--space-24)' }}>
+      <Box sx={{ maxWidth: 520, mx: 'auto' }}>
+        <Typography variant="h1" sx={{ mb: 'var(--space-24)' }}>Mon profil</Typography>
 
-      <div style={styles.card}>
-        <p><strong>Email:</strong> {data.user.email}</p>
-        <p><strong>Name:</strong> {data.user.name || '—'}</p>
-        <p><strong>ID:</strong> <code>{data.user.id}</code></p>
-      </div>
+        <Card sx={{ mb: 'var(--space-24)' }}>
+          <CardContent>
+            <Typography sx={{ color: 'var(--muted)', fontSize: '12px', mb: 'var(--space-4)' }}>Email</Typography>
+            <Typography sx={{ mb: 'var(--space-12)' }}>{data.user.email}</Typography>
+            <Typography sx={{ color: 'var(--muted)', fontSize: '12px', mb: 'var(--space-4)' }}>Nom</Typography>
+            <Typography sx={{ mb: 'var(--space-12)' }}>{data.user.name || '—'}</Typography>
+            <Typography sx={{ color: 'var(--muted)', fontSize: '12px', mb: 'var(--space-4)' }}>Téléphone</Typography>
+            <Typography>{data.user.phone || '—'}</Typography>
+          </CardContent>
+        </Card>
 
-      <h2 style={{ marginTop: '1.5rem' }}>My Organisations</h2>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 'var(--space-12)' }}>
+          <Typography variant="h2">Mes organisations</Typography>
+          <Button variant="outlined" size="small" onClick={() => router.push('/orgs/new')}>
+            + Créer
+          </Button>
+        </Box>
 
-      {data.orgs.length === 0 && (
-        <p style={{ color: '#888' }}>
-          No organisations yet.{' '}
-          <a href="/orgs/new" style={{ color: '#0070f3' }}>Create one</a>
-        </p>
-      )}
+        {data.orgs.length === 0 && (
+          <Card>
+            <CardContent>
+              <Typography sx={{ color: 'var(--muted)', textAlign: 'center' }}>
+                Aucune organisation.
+              </Typography>
+            </CardContent>
+          </Card>
+        )}
 
-      <div style={styles.list}>
-        {data.orgs.map((org) => (
-          <div
-            key={org.orgId}
-            style={{
-              ...styles.orgRow,
-              border: activeOrg === org.orgId ? '2px solid #0070f3' : '1px solid #ddd',
-            }}
-          >
-            <div>
-              <strong>{org.name}</strong>
-              <span style={styles.badge}>{org.role}</span>
-            </div>
-            <button
-              onClick={() => selectOrg(org.orgId)}
-              style={activeOrg === org.orgId ? styles.selectedBtn : styles.selectBtn}
-            >
-              {activeOrg === org.orgId ? 'Active' : 'Select'}
-            </button>
-          </div>
-        ))}
-      </div>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+          {data.orgs.map((org) => {
+            const isActive = activeOrg === org.orgId;
+            return (
+              <Card
+                key={org.orgId}
+                sx={{
+                  cursor: 'pointer',
+                  border: isActive ? '1px solid var(--brand-copper)' : undefined,
+                  '&:hover': { borderColor: 'var(--brand-copper)' },
+                }}
+                onClick={() => selectOrg(org.orgId)}
+              >
+                <CardContent sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 'var(--space-12) !important' }}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 600 }}>{org.name}</Typography>
+                    <Chip label={org.role} size="small" sx={{ mt: 'var(--space-4)' }} />
+                  </Box>
+                  {isActive && (
+                    <Chip label="Active" size="small" sx={{ bgcolor: 'rgba(216,162,74,0.15)', color: 'var(--brand-copper)', fontWeight: 600 }} />
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Box>
 
-      <div style={styles.actions}>
-        <a href="/orgs/new" style={styles.link}>+ Create Org</a>
-        <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
-      </div>
-    </main>
+        <Box sx={{ display: 'flex', gap: 'var(--space-12)', mt: 'var(--space-24)' }}>
+          <Button variant="outlined" size="small" onClick={() => router.push('/app/settings/notifications')}>
+            Notifications
+          </Button>
+          <Button variant="outlined" size="small" color="error" onClick={handleLogout}>
+            Déconnexion
+          </Button>
+        </Box>
+      </Box>
+    </Box>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  main: {
-    maxWidth: '500px',
-    margin: '2rem auto',
-    fontFamily: 'system-ui, sans-serif',
-    padding: '0 1rem',
-  },
-  title: { fontSize: '1.5rem', fontWeight: 700 },
-  card: {
-    padding: '1rem',
-    background: '#f9f9f9',
-    borderRadius: '8px',
-    border: '1px solid #eee',
-    marginTop: '0.5rem',
-  },
-  list: { display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' },
-  orgRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '0.75rem 1rem',
-    borderRadius: '8px',
-    background: '#fff',
-  },
-  badge: {
-    marginLeft: '0.5rem',
-    padding: '0.15rem 0.5rem',
-    borderRadius: '4px',
-    background: '#eee',
-    fontSize: '0.8rem',
-  },
-  selectBtn: {
-    padding: '0.4rem 1rem',
-    borderRadius: '6px',
-    border: '1px solid #ccc',
-    background: '#fff',
-    cursor: 'pointer',
-  },
-  selectedBtn: {
-    padding: '0.4rem 1rem',
-    borderRadius: '6px',
-    border: '1px solid #0070f3',
-    background: '#0070f3',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  actions: {
-    display: 'flex',
-    gap: '1rem',
-    marginTop: '1.5rem',
-    alignItems: 'center',
-  },
-  link: { color: '#0070f3', textDecoration: 'none', fontWeight: 600 },
-  logoutBtn: {
-    padding: '0.5rem 1rem',
-    borderRadius: '6px',
-    border: '1px solid #cc0000',
-    background: '#fff',
-    color: '#cc0000',
-    cursor: 'pointer',
-  },
-};

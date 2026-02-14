@@ -41,6 +41,11 @@ describe('SPEC-02 — Auth + Org + RBAC (e2e)', () => {
     prisma = app.get(PrismaService);
 
     // Clean slate
+    await prisma.taskReminder.deleteMany();
+    await prisma.task.deleteMany();
+    await prisma.notificationDispatch.deleteMany();
+    await prisma.notification.deleteMany();
+    await prisma.leadActivity.deleteMany();
     await prisma.orgInvite.deleteMany();
     await prisma.refreshToken.deleteMany();
     await prisma.orgMembership.deleteMany();
@@ -50,12 +55,19 @@ describe('SPEC-02 — Auth + Org + RBAC (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.orgInvite.deleteMany();
-    await prisma.refreshToken.deleteMany();
-    await prisma.orgMembership.deleteMany();
-    await prisma.lead.deleteMany();
-    await prisma.org.deleteMany();
-    await prisma.user.deleteMany();
+    try {
+      await prisma.taskReminder.deleteMany();
+      await prisma.task.deleteMany();
+      await prisma.notificationDispatch.deleteMany();
+      await prisma.notification.deleteMany();
+      await prisma.leadActivity.deleteMany();
+      await prisma.orgInvite.deleteMany();
+      await prisma.refreshToken.deleteMany();
+      await prisma.orgMembership.deleteMany();
+      await prisma.lead.deleteMany();
+      await prisma.org.deleteMany();
+      await prisma.user.deleteMany();
+    } catch { /* best-effort */ }
     await app.close();
   });
 
@@ -222,7 +234,7 @@ describe('SPEC-02 — Auth + Org + RBAC (e2e)', () => {
         .post('/api/orgs/invites/accept')
         .set('Cookie', cookiesB)
         .send({ token: inviteTokenAgent })
-        .expect(201);
+        .expect(200);
 
       expect(res.body.ok).toBe(true);
       expect(res.body.orgId).toBe(orgId);
@@ -251,7 +263,7 @@ describe('SPEC-02 — Auth + Org + RBAC (e2e)', () => {
         .post('/api/orgs/invites/accept')
         .set('Cookie', cookiesC)
         .send({ token: inviteTokenViewer })
-        .expect(201);
+        .expect(200);
     });
 
     it('GET /api/orgs/:orgId/members → OWNER can list members', async () => {

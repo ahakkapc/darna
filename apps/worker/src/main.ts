@@ -6,6 +6,16 @@ import { processAvScan } from './processors/avscan.processor';
 import { processDerivatives } from './processors/derivatives.processor';
 import { processStorageGc } from './processors/storage-gc.processor';
 import { processNotifyEmail } from './processors/notify-email.processor';
+import { processNotifyWhatsapp } from './processors/notify-whatsapp.processor';
+import { processOrgTickTasks } from './processors/org-tick-tasks.processor';
+import { processInboundEvent } from './processors/inbound-process-event.processor';
+import { processOutboundJob } from './processors/outbound-process-job.processor';
+import { processIntegrationHealthcheck } from './processors/integration-healthcheck.processor';
+import { processMetaLeadgenBackfill } from './processors/meta-leadgen-backfill.processor';
+import { processInboxSlaTick } from './processors/inbox-sla-tick.processor';
+import { processCommBackfillThread } from './processors/comm-backfill-thread.processor';
+import { processSequenceTick } from './processors/sequence-tick.processor';
+import { logger } from './logger';
 
 const BACKOFF_DELAYS = [30_000, 120_000, 600_000];
 
@@ -31,13 +41,13 @@ const s3 = new S3Client({
 async function processJob(job: Job): Promise<void> {
   const jobRunId = job.data.jobRunId as string;
   if (!jobRunId) {
-    console.error(`Job ${job.id} missing jobRunId`);
+    logger.error('Job missing jobRunId', { jobId: job.id });
     return;
   }
 
   const jobRun = await prisma.jobRun.findUnique({ where: { id: jobRunId } });
   if (!jobRun) {
-    console.error(`JobRun ${jobRunId} not found`);
+    logger.error('JobRun not found', { jobRunId });
     return;
   }
 
@@ -60,6 +70,33 @@ async function processJob(job: Job): Promise<void> {
       case 'NOTIFY_EMAIL':
         await processNotifyEmail(prisma, job.data);
         break;
+      case 'NOTIFY_WHATSAPP':
+        await processNotifyWhatsapp(prisma, job.data);
+        break;
+      case 'ORG_TICK_TASKS':
+        await processOrgTickTasks(prisma, job.data);
+        break;
+      case 'INBOUND_PROCESS_EVENT':
+        await processInboundEvent(prisma, job.data);
+        break;
+      case 'OUTBOUND_PROCESS_JOB':
+        await processOutboundJob(prisma, job.data);
+        break;
+      case 'INTEGRATION_HEALTHCHECK':
+        await processIntegrationHealthcheck(prisma, job.data);
+        break;
+      case 'META_LEADGEN_BACKFILL':
+        await processMetaLeadgenBackfill(prisma, job.data);
+        break;
+      case 'INBOX_SLA_TICK':
+        await processInboxSlaTick(prisma, job.data);
+        break;
+      case 'COMM_BACKFILL_THREAD':
+        await processCommBackfillThread(prisma, job.data);
+        break;
+      case 'SEQUENCE_TICK':
+        await processSequenceTick(prisma);
+        break;
       default:
         throw new Error(`Unknown job type: ${jobRun.type}`);
     }
@@ -69,7 +106,7 @@ async function processJob(job: Job): Promise<void> {
       data: { status: 'SUCCESS', finishedAt: new Date() },
     });
 
-    console.log(`[OK] ${jobRun.type} jobRunId=${jobRunId}`);
+    logger.info('Job completed', { type: jobRun.type, jobRunId });
   } catch (err) {
     const error = err as Error;
     const updatedRun = await prisma.jobRun.findUnique({ where: { id: jobRunId } });
@@ -89,11 +126,11 @@ async function processJob(job: Job): Promise<void> {
 
     if (!isFinal) {
       const delay = BACKOFF_DELAYS[Math.min(attempts - 1, BACKOFF_DELAYS.length - 1)];
-      console.log(`[RETRY] ${jobRun.type} jobRunId=${jobRunId} attempt=${attempts}/${maxAttempts} delay=${delay}ms`);
+      logger.warn('Job retrying', { type: jobRun.type, jobRunId, attempt: attempts, maxAttempts, delayMs: delay });
       throw error;
     }
 
-    console.error(`[FAILED] ${jobRun.type} jobRunId=${jobRunId}: ${error.message}`);
+    logger.error('Job failed permanently', { type: jobRun.type, jobRunId, error: error.message });
   }
 }
 
@@ -109,25 +146,25 @@ async function startHeartbeat() {
 }
 
 async function main() {
-  console.log(`Worker starting — queue=${queueName} redis=${redisUrl}`);
+  logger.info('Worker starting', { queue: queueName, redis: redisUrl });
 
   await startHeartbeat();
 
   const worker = new Worker(queueName, processJob, {
-    connection,
+    connection: connection as any,
     concurrency: parseInt(process.env.WORKER_CONCURRENCY_DEFAULT ?? '2', 10),
   });
 
   worker.on('completed', (job) => {
-    console.log(`Job ${job.id} completed`);
+    logger.info('BullMQ job completed', { jobId: job.id });
   });
 
   worker.on('failed', (job, err) => {
-    console.error(`Job ${job?.id} failed: ${err.message}`);
+    logger.error('BullMQ job failed', { jobId: job?.id, error: err.message });
   });
 
   process.on('SIGTERM', async () => {
-    console.log('SIGTERM received, shutting down...');
+    logger.info('SIGTERM received, shutting down...');
     await worker.close();
     connection.disconnect();
     await prisma.$disconnect();
@@ -135,17 +172,17 @@ async function main() {
   });
 
   process.on('SIGINT', async () => {
-    console.log('SIGINT received, shutting down...');
+    logger.info('SIGINT received, shutting down...');
     await worker.close();
     connection.disconnect();
     await prisma.$disconnect();
     process.exit(0);
   });
 
-  console.log('Worker ready');
+  logger.info('Worker ready');
 }
 
 main().catch((err) => {
-  console.error('Worker fatal error:', err);
+  logger.error('Worker fatal error', { error: (err as Error).message });
   process.exit(1);
 });

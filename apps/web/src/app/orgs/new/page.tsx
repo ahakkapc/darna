@@ -2,84 +2,87 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import Alert from '@mui/material/Alert';
 import { api } from '../../../lib/api';
 
 export default function NewOrgPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
     try {
       const res = await api<{ orgId: string; name: string }>('/orgs', {
         method: 'POST',
         body: JSON.stringify({ name }),
       });
       localStorage.setItem('activeOrgId', res.orgId);
-      router.push('/me');
+      router.push('/orgs/select');
     } catch (err: unknown) {
       const e = err as { error?: { message?: string } };
-      setError(e?.error?.message || 'Failed to create org');
+      setError(e?.error?.message || 'Impossible de créer l\'organisation');
+    } finally {
+      setSubmitting(false);
     }
   }
 
   return (
-    <main style={styles.main}>
-      <h1 style={styles.title}>Create Organisation</h1>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        bgcolor: 'var(--bg-0)',
+        p: 'var(--space-16)',
+      }}
+    >
+      <Card sx={{ width: '100%', maxWidth: 480, p: 'var(--space-32)' }}>
+        <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+          <Typography variant="h1" sx={{ mb: 'var(--space-4)' }}>
+            Créer une organisation
+          </Typography>
+          <Typography sx={{ color: 'var(--muted)', fontSize: '13px', mb: 'var(--space-24)' }}>
+            Donnez un nom à votre agence ou structure.
+          </Typography>
 
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <input
-          placeholder="Organisation name"
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={styles.input}
-        />
-        <button type="submit" style={styles.button}>Create</button>
-      </form>
+          <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+            <TextField
+              placeholder="Nom de l'organisation"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              size="small"
+              fullWidth
+            />
+            <Button type="submit" variant="contained" fullWidth disabled={submitting}>
+              Créer
+            </Button>
+          </Box>
 
-      {error && <p style={styles.error}>{error}</p>}
+          {error && <Alert severity="error" sx={{ mt: 'var(--space-16)' }}>{error}</Alert>}
 
-      <a href="/me" style={styles.link}>Back to profile</a>
-    </main>
+          <Button
+            variant="text"
+            size="small"
+            onClick={() => router.push('/me')}
+            sx={{ mt: 'var(--space-16)', color: 'var(--muted)' }}
+          >
+            Retour au profil
+          </Button>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  main: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100vh',
-    fontFamily: 'system-ui, sans-serif',
-    gap: '1rem',
-    background: '#f5f5f5',
-  },
-  title: { fontSize: '1.5rem', fontWeight: 700 },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.75rem',
-    width: '320px',
-  },
-  input: {
-    padding: '0.6rem 0.8rem',
-    borderRadius: '6px',
-    border: '1px solid #ccc',
-    fontSize: '1rem',
-  },
-  button: {
-    padding: '0.7rem',
-    borderRadius: '6px',
-    border: 'none',
-    background: '#0070f3',
-    color: '#fff',
-    fontSize: '1rem',
-    cursor: 'pointer',
-  },
-  error: { color: 'red' },
-  link: { color: '#0070f3', textDecoration: 'none', marginTop: '0.5rem' },
-};

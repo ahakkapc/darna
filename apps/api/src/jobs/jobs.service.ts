@@ -7,6 +7,14 @@ const IDEMPOTENCY_TTLS: Record<string, number> = {
   IMAGE_DERIVATIVES: 7 * 24 * 60 * 60 * 1000,
   STORAGE_GC: 24 * 60 * 60 * 1000,
   NOTIFY_EMAIL: 24 * 60 * 60 * 1000,
+  NOTIFY_WHATSAPP: 24 * 60 * 60 * 1000,
+  ORG_TICK_TASKS: 5 * 60 * 1000,
+  INBOUND_PROCESS_EVENT: 24 * 60 * 60 * 1000,
+  OUTBOUND_PROCESS_JOB: 24 * 60 * 60 * 1000,
+  INTEGRATION_HEALTHCHECK: 5 * 60 * 1000,
+  INBOX_SLA_TICK: 2 * 60 * 1000,
+  COMM_BACKFILL_THREAD: 24 * 60 * 60 * 1000,
+  SEQUENCE_TICK: 60 * 1000,
 };
 
 const MAX_ATTEMPTS: Record<string, number> = {
@@ -14,6 +22,14 @@ const MAX_ATTEMPTS: Record<string, number> = {
   IMAGE_DERIVATIVES: 3,
   STORAGE_GC: 2,
   NOTIFY_EMAIL: 5,
+  NOTIFY_WHATSAPP: 5,
+  ORG_TICK_TASKS: 3,
+  INBOUND_PROCESS_EVENT: 5,
+  OUTBOUND_PROCESS_JOB: 5,
+  INTEGRATION_HEALTHCHECK: 2,
+  INBOX_SLA_TICK: 2,
+  COMM_BACKFILL_THREAD: 2,
+  SEQUENCE_TICK: 2,
 };
 
 @Injectable()
@@ -26,7 +42,7 @@ export class JobsService {
   ) {}
 
   async enqueue(
-    type: 'AV_SCAN_DOCUMENT' | 'IMAGE_DERIVATIVES' | 'STORAGE_GC' | 'NOTIFY_EMAIL',
+    type: 'AV_SCAN_DOCUMENT' | 'IMAGE_DERIVATIVES' | 'STORAGE_GC' | 'NOTIFY_EMAIL' | 'NOTIFY_WHATSAPP' | 'ORG_TICK_TASKS' | 'INBOUND_PROCESS_EVENT' | 'OUTBOUND_PROCESS_JOB' | 'INTEGRATION_HEALTHCHECK' | 'COMM_BACKFILL_THREAD' | 'SEQUENCE_TICK',
     payload: Record<string, unknown>,
     opts?: { idempotencyKey?: string; organizationId?: string },
   ): Promise<{ jobRunId: string; deduplicated: boolean }> {

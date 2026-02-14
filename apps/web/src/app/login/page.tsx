@@ -2,6 +2,15 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Alert from '@mui/material/Alert';
 import { api } from '../../lib/api';
 
 export default function LoginPage() {
@@ -12,11 +21,13 @@ export default function LoginPage() {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setSubmitting(true);
 
     try {
       if (tab === 'register') {
@@ -24,7 +35,7 @@ export default function LoginPage() {
           method: 'POST',
           body: JSON.stringify({ email, password, name: name || undefined }),
         });
-        setSuccess('Account created! You can now log in.');
+        setSuccess('Compte créé ! Connectez-vous.');
         setTab('login');
         return;
       }
@@ -36,115 +47,136 @@ export default function LoginPage() {
       router.push('/me');
     } catch (err: unknown) {
       const e = err as { error?: { message?: string } };
-      setError(e?.error?.message || 'Something went wrong');
+      setError(e?.error?.message || 'Une erreur est survenue');
+    } finally {
+      setSubmitting(false);
     }
   }
 
   return (
-    <main style={styles.main}>
-      <h1 style={styles.title}>Darna</h1>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        bgcolor: 'var(--bg-0)',
+        p: 'var(--space-16)',
+      }}
+    >
+      <Card
+        sx={{
+          width: '100%',
+          maxWidth: 420,
+          p: 'var(--space-32)',
+        }}
+      >
+        <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+          <Typography
+            variant="h1"
+            sx={{
+              textAlign: 'center',
+              mb: 'var(--space-4)',
+              background: 'var(--grad-brand)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            Darna
+          </Typography>
+          <Typography
+            sx={{
+              textAlign: 'center',
+              color: 'var(--muted)',
+              fontSize: '14px',
+              mb: 'var(--space-24)',
+            }}
+          >
+            Gestion immobilière
+          </Typography>
 
-      <div style={styles.tabs}>
-        <button
-          onClick={() => setTab('login')}
-          style={tab === 'login' ? styles.tabActive : styles.tab}
-        >
-          Login
-        </button>
-        <button
-          onClick={() => setTab('register')}
-          style={tab === 'register' ? styles.tabActive : styles.tab}
-        >
-          Register
-        </button>
-      </div>
+          <ToggleButtonGroup
+            value={tab}
+            exclusive
+            onChange={(_, v) => v && setTab(v)}
+            fullWidth
+            sx={{ mb: 'var(--space-24)' }}
+          >
+            <ToggleButton
+              value="login"
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                '&.Mui-selected': {
+                  bgcolor: 'rgba(216,162,74,0.15)',
+                  color: 'var(--brand-copper)',
+                  borderColor: 'var(--brand-copper)',
+                },
+              }}
+            >
+              Connexion
+            </ToggleButton>
+            <ToggleButton
+              value="register"
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                '&.Mui-selected': {
+                  bgcolor: 'rgba(216,162,74,0.15)',
+                  color: 'var(--brand-copper)',
+                  borderColor: 'var(--brand-copper)',
+                },
+              }}
+            >
+              Inscription
+            </ToggleButton>
+          </ToggleButtonGroup>
 
-      <form onSubmit={handleSubmit} style={styles.form}>
-        {tab === 'register' && (
-          <input
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={styles.input}
-          />
-        )}
-        <input
-          type="email"
-          placeholder="Email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={styles.input}
-        />
-        <input
-          type="password"
-          placeholder="Password (min 10 chars)"
-          required
-          minLength={10}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={styles.input}
-        />
-        <button type="submit" style={styles.button}>
-          {tab === 'login' ? 'Log in' : 'Create account'}
-        </button>
-      </form>
+          <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
+            {tab === 'register' && (
+              <TextField
+                placeholder="Nom"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                size="small"
+                fullWidth
+              />
+            )}
+            <TextField
+              type="email"
+              placeholder="Email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              size="small"
+              fullWidth
+            />
+            <TextField
+              type="password"
+              placeholder="Mot de passe (min 10 car.)"
+              required
+              inputProps={{ minLength: 10 }}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              size="small"
+              fullWidth
+            />
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              disabled={submitting}
+              sx={{ mt: 'var(--space-8)' }}
+            >
+              {tab === 'login' ? 'Se connecter' : 'Créer un compte'}
+            </Button>
+          </Box>
 
-      {error && <p style={styles.error}>{error}</p>}
-      {success && <p style={styles.success}>{success}</p>}
-    </main>
+          {error && <Alert severity="error" sx={{ mt: 'var(--space-16)' }}>{error}</Alert>}
+          {success && <Alert severity="success" sx={{ mt: 'var(--space-16)' }}>{success}</Alert>}
+        </CardContent>
+      </Card>
+    </Box>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  main: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100vh',
-    fontFamily: 'system-ui, sans-serif',
-    gap: '1rem',
-    background: '#f5f5f5',
-  },
-  title: { fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem' },
-  tabs: { display: 'flex', gap: '0.5rem' },
-  tab: {
-    padding: '0.5rem 1.5rem',
-    border: '1px solid #ccc',
-    background: '#fff',
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  tabActive: {
-    padding: '0.5rem 1.5rem',
-    border: '1px solid #0070f3',
-    background: '#0070f3',
-    color: '#fff',
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.75rem',
-    width: '320px',
-  },
-  input: {
-    padding: '0.6rem 0.8rem',
-    borderRadius: '6px',
-    border: '1px solid #ccc',
-    fontSize: '1rem',
-  },
-  button: {
-    padding: '0.7rem',
-    borderRadius: '6px',
-    border: 'none',
-    background: '#0070f3',
-    color: '#fff',
-    fontSize: '1rem',
-    cursor: 'pointer',
-  },
-  error: { color: 'red', maxWidth: '320px', textAlign: 'center' },
-  success: { color: 'green', maxWidth: '320px', textAlign: 'center' },
-};

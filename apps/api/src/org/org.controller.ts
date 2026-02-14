@@ -8,6 +8,7 @@ import {
   Req,
   UseGuards,
   ParseUUIDPipe,
+  HttpCode,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -45,6 +46,7 @@ export class OrgController {
   }
 
   @Post('invites/accept')
+  @HttpCode(200)
   acceptInvite(
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: AcceptInviteDto,
